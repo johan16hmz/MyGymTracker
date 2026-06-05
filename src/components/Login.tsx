@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { signIn, signUp } from '../authService';
 import './Login.css';
 
 interface LoginProps {
@@ -6,31 +7,47 @@ interface LoginProps {
 }
 
 export function Login({ onLogin }: LoginProps) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!username.trim()) {
-      setError('Veuillez entrer un nom d\'utilisateur');
+    if (!email.trim()) {
+      setError('Veuillez entrer un email');
       return;
     }
 
-    if (username.trim().length < 3) {
-      setError('Le nom d\'utilisateur doit avoir au moins 3 caractères');
+    if (!password.trim()) {
+      setError('Veuillez entrer un mot de passe');
       return;
     }
 
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      onLogin(username.trim());
+
+    try {
+      let result;
+      
+      if (isSignUp) {
+        result = await signUp(email.trim(), password.trim());
+      } else {
+        result = await signIn(email.trim(), password.trim());
+      }
+
+      if (result.success && result.user) {
+        onLogin(result.user.email || email);
+      } else {
+        setError(result.error || 'Erreur lors de l\'authentification');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+    } finally {
       setLoading(false);
-    }, 300);
+    }
   };
 
   return (
@@ -38,28 +55,34 @@ export function Login({ onLogin }: LoginProps) {
       <div className="login-card">
         <div className="login-header">
           <h1>🏋️ MyGymTracker</h1>
-          <button 
-        type="button" 
-        onClick={() => alert(JSON.stringify(localStorage))}
-        style={{ background: 'red', color: 'white', padding: '10px', marginTop: '10px' }}
-        >
-        Bouton de secours : Voir la mémoire
-        </button>
           <p className="login-subtitle">Suivi d'entraînement intelligent</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Nom d'utilisateur</label>
+            <label htmlFor="email">Email</label>
             <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Entrez votre pseudo"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="votre@email.com"
               disabled={loading}
               autoFocus
-              autoComplete="username"
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Mot de passe</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Au moins 6 caractères"
+              disabled={loading}
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
             />
           </div>
 
@@ -70,7 +93,7 @@ export function Login({ onLogin }: LoginProps) {
             className="btn btn-primary btn-large"
             disabled={loading}
           >
-            {loading ? 'Connexion...' : (isSignUp ? 'Créer compte' : 'Se connecter')}
+            {loading ? 'Chargement...' : (isSignUp ? 'Créer compte' : 'Se connecter')}
           </button>
 
           <div className="login-footer">
@@ -91,7 +114,7 @@ export function Login({ onLogin }: LoginProps) {
         </form>
 
         <div className="login-info">
-          <p>💾 Vos données sont stockées localement sur votre appareil</p>
+          <p>☁️ Vos données sont stockées de manière sécurisée sur Supabase</p>
         </div>
       </div>
     </div>

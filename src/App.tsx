@@ -5,60 +5,79 @@ import { WorkoutForm } from './components/WorkoutForm';
 import { WorkoutDetail } from './components/WorkoutDetail';
 import { Login } from './components/Login';
 import { BenchProgress } from './components/BenchProgress';
+import { onAuthStateChange, signOut } from './authService';
+import { getUserWorkouts, addWorkout, updateWorkout, deleteWorkout } from './workoutService';
 import './App.css';
 
 function App() {
-  const [currentUser, setCurrentUser] = useState<string | null>(() => {
-    return localStorage.getItem('mygymtracker_currentUser');
-  });
-
-  const [workouts, setWorkouts] = useState<Workout[]>(() => {
-    if (!currentUser) return [];
-    const saved = localStorage.getItem(`mygymtracker_workouts_${currentUser}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-  
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'bench'>('list');
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
 
+  // Écouter les changements d'authentification
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(`mygymtracker_workouts_${currentUser}`, JSON.stringify(workouts));
-    }
-  }, [workouts, currentUser]);
+    const { data: { subscription } } = onAuthStateChange(async (user) => {
+      if (user) {
+        setCurrentUser(user.email);
+        setUserId(user.id);
+        // Charger les séances de l'utilisateur
+        const result = await getUserWorkouts(user.id);
+        if (result.success) {
+          setWorkouts(result.data || []);
+        }
+      } else {
+        setCurrentUser(null);
+        setUserId(null);
+        setWorkouts([]);
+      }
+    });
 
-  const handleLogin = (username: string) => {
-    localStorage.setItem('mygymtracker_currentUser', username);
-    setCurrentUser(username);
-    // Load user's workouts
-    const saved = localStorage.getItem(`mygymtracker_workouts_${username}`);
-    setWorkouts(saved ? JSON.parse(saved) : []);
-  };
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('mygymtracker_currentUser');
-    setCurrentUser(null);
-    setWorkouts([]);
-    setView('list');
-    setSelectedWorkout(null);
-  };
+  const handleSaveWorkout = async (workout: Workout) => {
+    if (!userId) return;
 
-  const handleSaveWorkout = (workout: Workout) => {
     if (view === 'edit') {
-      setWorkouts(prev => prev.map(w => w.id === workout.id ? workout : w));
+      const result = await updateWorkout(workout.id, workout);
+      if (result.success) {
+        setWorkouts(prev => prev.map(w => w.id === workout.id ? workout : w));
+      }
     } else {
-      setWorkouts(prev => [workout, ...prev]);
+      const result = await addWorkout(userId, workout);
+      if (result.success) {
+        setWorkouts(prev => [workout, ...prev]);
+      }
     }
     setView('list');
     setSelectedWorkout(null);
   };
 
-  const handleUpdateWorkout = (workout: Workout) => {
-    setWorkouts(prev => prev.map(w => w.id === workout.id ? workout : w));
+  const handleUpdateWorkout = async (workout: Workout) => {
+    const result = await updateWorkout(workout.id, workout);
+    if (result.success) {
+      setWorkouts(prev => prev.map(w => w.id === workout.id ? workout : w));
+    }
   };
 
-  const handleDeleteWorkout = (id: string) => {
-    setWorkouts(prev => prev.filter(w => w.id !== id));
+  const handleDeleteWorkout = async (id: string) => {
+    const result = await deleteWorkout(id);
+    if (result.success) {
+      setWorkouts(prev => prev.filter(w => w.id !== id));
+    }
+    setView('list');
+    setSelectedWorkout(null);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setCurrentUser(null);
+    setUserId(null);
+    setWorkouts([]);
     setView('list');
     setSelectedWorkout(null);
   };
@@ -88,7 +107,7 @@ function App() {
   };
 
   if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={() => {}} />;
   }
 
   return (
