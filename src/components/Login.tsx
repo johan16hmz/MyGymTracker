@@ -38,6 +38,13 @@ export function Login({ onLogin }: LoginProps) {
       <div className="login-card">
         <div className="login-header">
           <h1>🏋️ MyGymTracker</h1>
+          <button 
+        type="button" 
+        onClick={() => alert(JSON.stringify(localStorage))}
+        style={{ background: 'red', color: 'white', padding: '10px', marginTop: '10px' }}
+        >
+        Bouton de secours : Voir la mémoire
+        </button>
           <p className="login-subtitle">Suivi d'entraînement intelligent</p>
         </div>
 
