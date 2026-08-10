@@ -147,6 +147,12 @@
   position: relative;
 }
 
+.exercise-order-controls {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
 .exercise-name-input input {
   width: 100%;
   padding: 0.6rem 0.75rem;
@@ -255,6 +261,15 @@
 
 .btn-icon:hover {
   color: var(--danger);
+}
+
+.exercise-order-controls .btn-icon:hover {
+  color: var(--primary);
+}
+
+.btn-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 /* Mobile responsiveness */

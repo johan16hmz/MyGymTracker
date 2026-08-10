@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Workout, Exercise } from '../types';
 import { TemplateSelector } from './TemplateSelector';
 import './WorkoutForm.css';
@@ -73,6 +73,19 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
   const [exercises, setExercises] = useState<Exercise[]>(workout?.exercises || []);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [repsInputValues, setRepsInputValues] = useState<{ [key: string]: string }>({});
+  const exerciseRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [exerciseToReveal, setExerciseToReveal] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!exerciseToReveal) return;
+
+    const exerciseElement = exerciseRefs.current[exerciseToReveal];
+    if (!exerciseElement) return;
+
+    exerciseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    exerciseElement.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+    setExerciseToReveal(null);
+  }, [exerciseToReveal, exercises]);
 
   const handleTemplateSelect = (selectedExercises: Exercise[]) => {
     setExercises(selectedExercises);
@@ -90,7 +103,25 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
   };
 
   const addExercise = () => {
-    setExercises(prev => [...prev, { id: generateId(), name: '', sets: [] }]);
+    const exercise = { id: generateId(), name: '', sets: [] };
+    setExercises(prev => [...prev, exercise]);
+    setExerciseToReveal(exercise.id);
+  };
+
+  const moveExercise = (exerciseId: string, direction: -1 | 1) => {
+    setExercises(prev => {
+      const currentIndex = prev.findIndex(exercise => exercise.id === exerciseId);
+      const targetIndex = currentIndex + direction;
+
+      if (currentIndex === -1 || targetIndex < 0 || targetIndex >= prev.length) return prev;
+
+      const reorderedExercises = [...prev];
+      [reorderedExercises[currentIndex], reorderedExercises[targetIndex]] = [
+        reorderedExercises[targetIndex],
+        reorderedExercises[currentIndex],
+      ];
+      return reorderedExercises;
+    });
   };
 
   const removeExercise = (exerciseId: string) => {
@@ -217,8 +248,15 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
         </div>
 
         {exercises.map((exercise, exIndex) => (
-          <div key={exercise.id} className="exercise-block">
+          <div
+            key={exercise.id}
+            ref={element => { exerciseRefs.current[exercise.id] = element; }}
+            className="exercise-block"
+          >
             <div className="exercise-header">
+              <span className="exercise-number" aria-label={`Exercice ${exIndex + 1}`}>
+                {exIndex + 1}
+              </span>
               <div className="exercise-name-input">
                 <input
                   type="text"
@@ -232,6 +270,28 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                     <option key={s} value={s} />
                   ))}
                 </datalist>
+              </div>
+              <div className="exercise-order-controls" aria-label="Changer l'ordre de l'exercice">
+                <button
+                  type="button"
+                  className="btn btn-icon"
+                  onClick={() => moveExercise(exercise.id, -1)}
+                  disabled={exIndex === 0}
+                  aria-label="Monter l'exercice"
+                  title="Monter"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-icon"
+                  onClick={() => moveExercise(exercise.id, 1)}
+                  disabled={exIndex === exercises.length - 1}
+                  aria-label="Descendre l'exercice"
+                  title="Descendre"
+                >
+                  ↓
+                </button>
               </div>
               <button
                 type="button"
