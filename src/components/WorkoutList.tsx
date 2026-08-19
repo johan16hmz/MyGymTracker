@@ -129,15 +129,7 @@ export function WorkoutList({
               >
                 <div 
                   className="card-header"
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    toggleExpand(workout.id);
-                  }}
+                  onClick={() => onView(workout)}
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="card-title">
@@ -150,9 +142,18 @@ export function WorkoutList({
                       })}
                     </span>
                   </div>
-                  <div className="expand-icon">
+                  <button
+                    type="button"
+                    className="expand-icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpand(workout.id);
+                    }}
+                    aria-label={isExpanded ? 'Masquer les séries' : 'Afficher les séries'}
+                    title={isExpanded ? 'Masquer les séries' : 'Afficher les séries'}
+                  >
                     {isExpanded ? '▼' : '▶'}
-                  </div>
+                  </button>
                 </div>
 
                 <div className="card-stats" onClick={(e) => e.stopPropagation()}>
@@ -223,22 +224,31 @@ export function WorkoutList({
 
                 <div className="card-actions" onClick={(e) => e.stopPropagation()}>
                   <button 
+                    type="button"
                     className="btn btn-secondary btn-sm" 
-                    onClick={() => onView(workout)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onView(workout);
+                    }}
                     title="Voir détails"
                   >
                     👁️
                   </button>
                   <button 
+                    type="button"
                     className="btn btn-secondary btn-sm" 
-                    onClick={() => onEdit(workout)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(workout);
+                    }}
                     title="Modifier"
                   >
                     ✏️
                   </button>
                   <button
                     className="btn btn-danger btn-sm"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (confirm('Supprimer cette séance ?')) {
                         onDelete(workout.id);
                       }

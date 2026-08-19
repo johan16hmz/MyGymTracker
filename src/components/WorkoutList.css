@@ -98,9 +98,14 @@
 }
 
 .expand-icon {
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
   font-size: 1.2rem;
   color: var(--primary);
   margin-left: 1rem;
+  padding: 0.25rem;
   transition: transform 0.3s;
 }
 
