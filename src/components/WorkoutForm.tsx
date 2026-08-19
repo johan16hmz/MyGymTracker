@@ -137,9 +137,16 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
   const addSet = (exerciseId: string) => {
     setExercises(prev =>
       prev.map(ex =>
-        ex.id === exerciseId
-          ? { ...ex, sets: [...ex.sets, { id: generateId(), weight: 0, reps: 0, repsMin: 8, repsMax: 12 }] }
-          : ex
+        {
+          if (ex.id !== exerciseId) return ex;
+
+          const previousSet = ex.sets.at(-1);
+          const newSet = previousSet
+            ? { ...previousSet, id: generateId() }
+            : { id: generateId(), weight: 0, reps: 0, repsMin: 8, repsMax: 12 };
+
+          return { ...ex, sets: [...ex.sets, newSet] };
+        }
       )
     );
   };
