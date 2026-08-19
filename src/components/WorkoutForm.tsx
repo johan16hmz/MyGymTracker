@@ -246,15 +246,17 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
         />
       </div>
 
-      <div className="form-group">
-        <label>Date</label>
-        <input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          required
-        />
-      </div>
+      {!workout && (
+        <div className="form-group">
+          <label>Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            required
+          />
+        </div>
+      )}
 
       {!workout && exercises.length === 0 && (
         <div className="template-section">

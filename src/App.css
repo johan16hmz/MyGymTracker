@@ -71,48 +71,7 @@ body {
   font-weight: 500;
 }
 
-.bench-quick-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #1e3a2f 0%, #2a4a3e 100%);
-  border: 2px solid #4ade80;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.bench-quick-btn:hover {
-  background: linear-gradient(135deg, #2a4a3e 0%, #3a5a4e 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
-}
-
-.bench-icon {
-  font-size: 1.25rem;
-}
-
-.bench-label {
-  color: #4ade80;
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
 @media (max-width: 600px) {
-  .bench-quick-btn {
-    padding: 0.4rem 0.75rem;
-    gap: 0.35rem;
-  }
-
-  .bench-icon {
-    font-size: 1rem;
-  }
-
-  .bench-label {
-    font-size: 0.8rem;
-  }
-
   .username {
     display: none;
   }

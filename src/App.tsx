@@ -4,7 +4,6 @@ import { WorkoutList } from './components/WorkoutList';
 import { WorkoutForm } from './components/WorkoutForm';
 import { WorkoutDetail } from './components/WorkoutDetail';
 import { Login } from './components/Login';
-import { BenchProgress } from './components/BenchProgress';
 import { onAuthStateChange, signOut } from './authService';
 import { getUserWorkouts, addWorkout, updateWorkout, deleteWorkout } from './workoutService';
 import './App.css';
@@ -13,7 +12,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'bench'>('list');
+  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
 
   // Écouter les changements d'authentification
@@ -97,10 +96,6 @@ function App() {
     setView('create');
   };
 
-  const handleGoToBench = () => {
-    setView('bench');
-  };
-
   const handleBackToList = () => {
     setView('list');
     setSelectedWorkout(null);
@@ -118,10 +113,6 @@ function App() {
             🏋️ MyGymTracker
           </h1>
           <div className="header-user">
-            <button className="bench-quick-btn" onClick={handleGoToBench}>
-              <span className="bench-icon">🏋️</span>
-              <span className="bench-label">Bench</span>
-            </button>
             <span className="username">👤 {currentUser}</span>
             <button className="btn btn-secondary btn-small" onClick={handleLogout}>
               Déconnexion
@@ -132,12 +123,6 @@ function App() {
       </header>
 
       <main className="app-main">
-        {view === 'bench' && (
-          <BenchProgress
-            currentUser={currentUser}
-            onBack={handleBackToList}
-          />
-        )}
         {view === 'list' && (
           <WorkoutList
             workouts={workouts}
