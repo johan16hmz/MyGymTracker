@@ -141,11 +141,33 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
           if (ex.id !== exerciseId) return ex;
 
           const previousSet = ex.sets.at(-1);
-          const newSet = previousSet
-            ? { ...previousSet, id: generateId() }
-            : { id: generateId(), weight: 0, reps: 0, repsMin: 8, repsMax: 12 };
+          if (!previousSet) {
+            return {
+              ...ex,
+              sets: [...ex.sets, { id: generateId(), weight: 0, reps: 0, repsMin: 8, repsMax: 12 }]
+            };
+          }
 
-          return { ...ex, sets: [...ex.sets, newSet] };
+          // Les répétitions ne sont enregistrées qu'à la sortie du champ. On
+          // reprend donc aussi la valeur en cours de saisie si elle existe.
+          const repsValue = repsInputValues[previousSet.id];
+          const copiedSet = { ...previousSet, id: generateId() };
+
+          if (repsValue !== undefined) {
+            const value = repsValue.trim();
+            if (value.includes('-')) {
+              const [repsMin, repsMax] = value.split('-').map(v => parseInt(v.trim()) || 0);
+              copiedSet.reps = 0;
+              copiedSet.repsMin = repsMin;
+              copiedSet.repsMax = repsMax;
+            } else {
+              copiedSet.reps = parseInt(value) || 0;
+              copiedSet.repsMin = 0;
+              copiedSet.repsMax = 0;
+            }
+          }
+
+          return { ...ex, sets: [...ex.sets, copiedSet] };
         }
       )
     );
