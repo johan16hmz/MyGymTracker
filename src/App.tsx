@@ -4,6 +4,8 @@ import { WorkoutList } from './components/WorkoutList';
 import { WorkoutForm } from './components/WorkoutForm';
 import { WorkoutDetail } from './components/WorkoutDetail';
 import { Login } from './components/Login';
+import { Strength } from './components/Strength';
+import { getStrengthBlock } from './strengthService';
 import { onAuthStateChange, signOut } from './authService';
 import { getUserWorkouts, addWorkout, updateWorkout, deleteWorkout } from './workoutService';
 import './App.css';
@@ -12,8 +14,11 @@ function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
+  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'strength'>('list');
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
+  const [strengthPending, setStrengthPending] = useState(false);
+  const [loadingWorkouts, setLoadingWorkouts] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // Écouter les changements d'authentification
   useEffect(() => {
@@ -25,7 +30,11 @@ function App() {
         const result = await getUserWorkouts(user.id);
         if (result.success) {
           setWorkouts(result.data || []);
+          setLoadError('');
+        } else {
+          setLoadError('Impossible de charger tes séances et blocs. Recharge la page pour réessayer.');
         }
+        setLoadingWorkouts(false);
       } else {
         setCurrentUser(null);
         setUserId(null);
@@ -73,6 +82,7 @@ function App() {
   };
 
   const handleLogout = async () => {
+    if (strengthPending && !confirm('Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?')) return;
     await signOut();
     setCurrentUser(null);
     setUserId(null);
@@ -97,6 +107,7 @@ function App() {
   };
 
   const handleBackToList = () => {
+    if (strengthPending && !confirm('Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?')) return;
     setView('list');
     setSelectedWorkout(null);
   };
@@ -120,12 +131,23 @@ function App() {
           </div>
         </div>
         <p className="tagline">Suivi d'entraînement intelligent</p>
+        <nav className="app-sections" aria-label="Sections">
+          <button className={`btn ${view !== 'strength' ? 'btn-primary' : 'btn-secondary'}`} onClick={handleBackToList}>Séances</button>
+          <button className={`btn ${view === 'strength' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setView('strength')}>Force</button>
+        </nav>
       </header>
 
       <main className="app-main">
+        {view === 'strength' && loadingWorkouts && <p role="status">Chargement des blocs…</p>}
+        {view === 'strength' && loadError && <p role="alert">{loadError}</p>}
+        {view === 'strength' && userId && !loadingWorkouts && !loadError && <Strength key={userId} userId={userId} workouts={workouts} onPendingChange={setStrengthPending} onSaved={saved => {
+          setWorkouts(previous => previous.some(workout => workout.id === saved.id)
+            ? previous.map(workout => workout.id === saved.id ? saved : workout)
+            : [saved, ...previous]);
+        }} />}
         {view === 'list' && (
           <WorkoutList
-            workouts={workouts}
+            workouts={workouts.filter(workout => !getStrengthBlock(workout))}
             onNew={handleNewWorkout}
             onView={handleViewWorkout}
             onEdit={handleEditWorkout}

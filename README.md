@@ -11,9 +11,19 @@ Application web de suivi d'entraînement en salle de sport. Créez, gérez et an
 - **Templates prédéfinis** — sélectionnez parmi des templates Push / Pull / Legs avec choix des exercices par groupe musculaire
 - **Liste des séances** — vue carte avec stats, édition en ligne et expansion
 - **Détail d'une séance** — statistiques complètes, grille d'exercices, édition et suppression
-- **Suivi du développé couché** — graphique d'évolution (Recharts), estimation du 1RM, records personnels, suggestion de poids suivant
+- **Force** — blocs de 4 semaines pour tractions, bench, dips et squat, charges calculées depuis le tableau RPE et historique des performances
 - **Interface responsive** — adaptée mobile et desktop
 - **Thème sombre** — design dark mode
+
+## Utiliser l’espace Force
+
+Ouvrir **Force**, saisir les 1RM visés et générer un bloc. Les semaines suivent les RPE 7, 8, 8,5 et 9, avec un objectif en 5 reps et un en 3 reps pour chaque exercice. Les charges utilisent le tableau fourni, arrondies au plus proche à 2,5 kg pour bench/squat et 1,25 kg pour dips/tractions (égalité arrondie vers le haut). Pour les mouvements lestés, les pourcentages s’appliquent au lest seul, sans poids de corps.
+
+Les charges prévues peuvent être ajustées. Ajouter les séries réalisées (charge, reps, RPE ressenti et note), puis cliquer sur **Enregistrer le bloc**. La date est automatique. Créer un nouveau bloc conserve les précédents.
+
+Les blocs sont stockés dans la table Supabase `workouts`, dans le JSON `exercises[].strengthBlock`. Ils utilisent les permissions du compte existant et sont exclus de la liste des séances ordinaires. Aucune migration SQL n’est nécessaire.
+
+Vérification locale : `node --test tests/strength.test.mjs`, puis `npm.cmd run build`.
 
 ## Stack technique
 

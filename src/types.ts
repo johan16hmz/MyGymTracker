@@ -1,3 +1,5 @@
+import type { StrengthBlock } from './strength';
+
 export interface Set {
   id: string;
   weight: number;
@@ -7,6 +9,7 @@ export interface Set {
 }
 
 export interface Exercise {
+  strengthBlock?: StrengthBlock;
   id: string;
   name: string;
   sets: Set[];
