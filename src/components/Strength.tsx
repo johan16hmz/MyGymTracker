@@ -43,6 +43,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   const [block, setBlock] = useState<StrengthBlock | undefined>(() => records[0] && getStrengthBlock(records[0]));
   const [creating, setCreating] = useState(!records.length);
   const [exerciseId, setExerciseId] = useState('pullup');
+  const [activeWeek, setActiveWeek] = useState(1);
   const [targets, setTargets] = useState<Record<string, string>>(Object.fromEntries(STRENGTH_EXERCISES.map(ex => [ex.id, String(ex.target)])));
   const [name, setName] = useState(`Bloc force ${records.length + 1}`);
   const [dirty, setDirty] = useState(false);
@@ -118,7 +119,8 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
       </button>)}</div>
       <div className="force-exercise-heading"><h3>{exercise.name}</h3><span>{exercise.weighted ? 'Lest ajouté' : 'Charge totale'} · pas de {n(exercise.step)} kg</span></div>
       <fieldset className="force-editor" disabled={saving}>
-        <div className="force-weeks">{WEEK_RPES.map((rpe, index) => <section className="force-week" key={rpe}>
+        <div className="force-week-tabs" aria-label="Semaine du bloc">{WEEK_RPES.map((_, index) => <button type="button" key={index} aria-pressed={activeWeek === index + 1} onClick={() => setActiveWeek(index + 1)}>Sem. {index + 1}</button>)}</div>
+        <div className="force-weeks">{WEEK_RPES.map((rpe, index) => <section className="force-week" data-active={activeWeek === index + 1} key={rpe}>
           <header><h4>Semaine {index + 1}</h4><span>RPE {n(rpe)}</span></header>
           {exercise.prescriptions.filter(row => row.week === index + 1).map(row => <div className="force-prescription" key={row.id}>
             <div className="force-prescription-heading"><strong>× {row.reps} reps</strong><small>{n(RPE_TABLE.find(r => r.rpe === row.rpe)!.percentages[row.reps - 1])} % du 1RM</small></div>
