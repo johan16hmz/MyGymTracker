@@ -37,3 +37,28 @@ Vérification locale : `node --test tests/strength.test.mjs`, puis `npm.cmd run 
 | [Vercel](https://vercel.com/) | Déploiement |
 
 👉 **App en ligne :** [mygymtracker-five.vercel.app](https://mygymtracker-five.vercel.app/)
+
+## Utiliser MyGymTracker avec une IA (MCP)
+
+Le dossier `mcp-server` contient un serveur MCP local. Il permet à une IA compatible MCP de se connecter avec un compte MyGymTracker, lire les séances et statistiques, créer/modifier/supprimer des séances et gérer les blocs Force.
+
+```bash
+cd mcp-server
+npm install
+npm run build
+```
+
+Ajoute ensuite ce serveur dans la configuration MCP de ton client IA :
+
+```json
+{
+  "mcpServers": {
+    "mygymtracker": {
+      "command": "node",
+      "args": ["C:/Users/johan/Documents/projets_perso/MyGymTracker/mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+Une fois le serveur chargé, utilise l’outil `auth_login` avec l’e-mail et le mot de passe de ton compte. Consulte `mcp-server/README.md` pour la liste complète des outils.
