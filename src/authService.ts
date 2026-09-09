@@ -21,6 +21,12 @@ export async function signUp(email: string, password: string, username?: string)
     const { data, error } = await check.client.auth.signUp({
       email,
       password,
+      options: {
+        // Supabase otherwise falls back to its global Site URL, which was
+        // pointing to localhost. Use the origin currently serving the app so
+        // confirmation links work on Vercel and during local development.
+        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      },
     });
 
     if (error) throw error;
