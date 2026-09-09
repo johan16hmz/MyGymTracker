@@ -13,6 +13,20 @@ function checkClient() {
   return { success: true as const, client: supabase };
 }
 
+// The confirmation page must be reachable from another device. When a user
+// signs up from a local development server, using window.location.origin
+// would put localhost in the e-mail and make the link unusable elsewhere.
+const PRODUCTION_APP_URL = 'https://mygymtracker-five.vercel.app';
+
+function getEmailRedirectUrl() {
+  if (typeof window === 'undefined') return PRODUCTION_APP_URL;
+
+  const hostname = window.location.hostname;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+
+  return isLocalhost ? PRODUCTION_APP_URL : window.location.origin;
+}
+
 export async function signUp(email: string, password: string, username?: string) {
   const check = checkClient();
   if (!check.success) return check;
@@ -22,10 +36,7 @@ export async function signUp(email: string, password: string, username?: string)
       email,
       password,
       options: {
-        // Supabase otherwise falls back to its global Site URL, which was
-        // pointing to localhost. Use the origin currently serving the app so
-        // confirmation links work on Vercel and during local development.
-        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        emailRedirectTo: getEmailRedirectUrl(),
       },
     });
 
