@@ -1,7 +1,8 @@
+import { t, useLanguage } from '../i18n';
 import { useState } from 'react';
 import type { Exercise } from '../types';
 import { WORKOUT_TEMPLATES } from '../templatesAdvanced';
-import './TemplateSelector.css';
+import { Icon } from './Icon';
 
 interface TemplateSelectorProps {
   onSelectTemplate: (exercises: Exercise[]) => void;
@@ -12,6 +13,7 @@ function generateId(): string {
 }
 
 export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
+  useLanguage();
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [selections, setSelections] = useState<{ [groupIndex: number]: number[] }>({});
 
@@ -68,7 +70,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
 
   return (
     <div className="template-selector">
-      <h2>Sélectionner une séance</h2>
+      <p className="eyebrow">{t('UNE BASE POUR PROGRESSER')}</p><h2>{t("Sélectionner une séance")}</h2>
 
       {!template ? (
         <div className="templates-grid">
@@ -78,11 +80,10 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
               className="template-card"
               onClick={() => handleTemplateSelect(index)}
             >
-              <div className="template-emoji">🏋️</div>
+              <div className="template-emoji"><Icon name="strength" size={32} /><span>{String(index + 1).padStart(2, '0')}</span></div>
               <div className="template-name">{tpl.name}</div>
               <div className="template-count">
-                {tpl.muscleGroups.length} groupes musculaires
-              </div>
+                {tpl.muscleGroups.length} {t("groupes musculaires")} </div>
             </button>
           ))}
         </div>
@@ -94,9 +95,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
               setSelectedTemplate(null);
               setSelections({});
             }}
-          >
-            ← Retour aux séances
-          </button>
+          >{t("← Retour aux séances")} </button>
 
           <h3>{template.name}</h3>
 
@@ -105,9 +104,9 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
               <div key={groupIndex} className="exercise-group">
                 <div className="group-header">
                   <span className="group-label">
-                    💪 {muscleGroup.name}
+                    {muscleGroup.name}
                   </span>
-                  <span className="group-number">Groupe {groupIndex + 1}</span>
+                  <span className="group-number">{t("Groupe")} {groupIndex + 1}</span>
                 </div>
 
                 <div className="options-list">
@@ -118,13 +117,9 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
                         key={optionIndex}
                         className={`option-item ${isSelected ? 'selected' : ''}`}
                         onClick={() => handleExerciseSelect(groupIndex, optionIndex)}
+                        aria-pressed={isSelected}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => {}}
-                          style={{ marginRight: '0.5rem' }}
-                        />
+                        <span className="selection-check" aria-hidden="true">{isSelected && <Icon name="check" size={14} />}</span>
                         <div className="option-content">
                           <div className="option-name">{option.name}</div>
                           <div className="option-sets">
@@ -150,16 +145,12 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
                 setSelectedTemplate(null);
                 setSelections({});
               }}
-            >
-              Annuler
-            </button>
+            >{t("Annuler")} </button>
             <button
               className="btn btn-primary"
               onClick={handleConfirm}
               disabled={!allGroupsSelected}
-            >
-              Utiliser cette séance
-            </button>
+            >{t("Utiliser cette séance")} </button>
           </div>
         </div>
       )}

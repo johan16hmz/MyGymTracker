@@ -1,3 +1,4 @@
+import { t, useLanguage } from './i18n';
 import { useState, useEffect } from 'react';
 import type { Workout } from './types';
 import { WorkoutList } from './components/WorkoutList';
@@ -8,9 +9,11 @@ import { Strength } from './components/Strength';
 import { getStrengthBlock } from './strengthService';
 import { onAuthStateChange, signOut } from './authService';
 import { getUserWorkouts, addWorkout, updateWorkout, deleteWorkout } from './workoutService';
-import './App.css';
+import { Icon } from './components/Icon';
+import { Settings } from './components/Settings';
 
 function App() {
+  useLanguage();
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -32,7 +35,7 @@ function App() {
           setWorkouts(result.data || []);
           setLoadError('');
         } else {
-          setLoadError('Impossible de charger tes séances et blocs. Recharge la page pour réessayer.');
+          setLoadError(t("Impossible de charger tes séances et blocs. Recharge la page pour réessayer."));
         }
         setLoadingWorkouts(false);
       } else {
@@ -82,7 +85,7 @@ function App() {
   };
 
   const handleLogout = async () => {
-    if (strengthPending && !confirm('Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?')) return;
+    if (strengthPending && !confirm(t("Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?"))) return;
     await signOut();
     setCurrentUser(null);
     setUserId(null);
@@ -107,7 +110,7 @@ function App() {
   };
 
   const handleBackToList = () => {
-    if (strengthPending && !confirm('Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?')) return;
+    if (strengthPending && !confirm(t("Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?"))) return;
     setView('list');
     setSelectedWorkout(null);
   };
@@ -118,34 +121,28 @@ function App() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#main-content">{t('Aller au contenu')}</a>
       <header className="app-header">
-        <div className="header-top">
-          <h1 onClick={() => handleBackToList()} style={{ cursor: 'pointer' }}>
-            🏋️ MyGymTracker
-          </h1>
-          <div className="header-user">
-            <span className="username">👤 {currentUser}</span>
-            <button className="btn btn-secondary btn-small" onClick={handleLogout}>
-              Déconnexion
-            </button>
-          </div>
-        </div>
-        <p className="tagline">Suivi d'entraînement intelligent</p>
+        <button className="brand" onClick={handleBackToList}><span className="brand-mark"><Icon name="logo" /></span><span>MyGym<span className="brand-light">Tracker</span><small>TRAINING JOURNAL</small></span></button>
+        <p className="nav-caption">{t('TON ESPACE')}</p>
         <nav className="app-sections" aria-label="Sections">
-          <button className={`btn ${view !== 'strength' ? 'btn-primary' : 'btn-secondary'}`} onClick={handleBackToList}>Séances</button>
-          <button className={`btn ${view === 'strength' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setView('strength')}>Force</button>
+          <button className={`nav-item ${view !== 'strength' ? 'active' : ''}`} aria-current={view !== 'strength' ? 'page' : undefined} onClick={handleBackToList}><Icon name="workout" />{t("Séances")}<span className="nav-dot" /></button>
+          <button className={`nav-item ${view === 'strength' ? 'active' : ''}`} aria-current={view === 'strength' ? 'page' : undefined} onClick={() => setView('strength')}><Icon name="strength" />{t("Force")}<span className="nav-dot" /></button>
         </nav>
+        <div className="sidebar-note"><Icon name="strength" size={28} /><p>{t('La régularité fait la différence.')}</p><span>{t('Une séance à la fois.')}</span></div>
+        <div className="header-user"><Settings /><div className="user-profile"><span className="avatar">{currentUser[0].toUpperCase()}</span><span className="username">{currentUser}<small>{t('Mon compte')}</small></span></div><button className="logout-button" onClick={handleLogout}><Icon name="logout" />{t('Déconnexion')}</button></div>
       </header>
 
-      <main className="app-main">
-        {view === 'strength' && loadingWorkouts && <p role="status">Chargement des blocs…</p>}
-        {view === 'strength' && loadError && <p role="alert">{loadError}</p>}
+      <main className="app-main" id="main-content">
+        <div className="workspace-topbar"><span>MYGYMTRACKER <span className="breadcrumb">/ {t(view === 'strength' ? 'Force' : 'Séances')}</span></span><span className="workspace-status"><span />{t('Ton espace personnel')}</span></div>
+        {(view === 'strength' || view === 'list') && loadingWorkouts && <div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de tes entraînements…')}</div>}
+        {(view === 'strength' || view === 'list') && loadError && <p role="alert">{loadError}</p>}
         {view === 'strength' && userId && !loadingWorkouts && !loadError && <Strength key={userId} userId={userId} workouts={workouts} onPendingChange={setStrengthPending} onSaved={saved => {
           setWorkouts(previous => previous.some(workout => workout.id === saved.id)
             ? previous.map(workout => workout.id === saved.id ? saved : workout)
             : [saved, ...previous]);
         }} />}
-        {view === 'list' && (
+        {view === 'list' && !loadingWorkouts && !loadError && (
           <WorkoutList
             workouts={workouts.filter(workout => !getStrengthBlock(workout))}
             onNew={handleNewWorkout}

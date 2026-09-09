@@ -1,6 +1,7 @@
+import { t, useLanguage, locale } from '../i18n';
 import { useState, useCallback, useEffect } from 'react';
 import type { Workout, Exercise } from '../types';
-import './WorkoutList.css';
+import { Icon } from './Icon';
 
 interface WorkoutListProps {
   workouts: Workout[];
@@ -19,10 +20,15 @@ export function WorkoutList({
   onDelete,
   onUpdate
 }: WorkoutListProps) {
+  useLanguage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; setId: string; field: 'weight' | 'reps' } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [localWorkouts, setLocalWorkouts] = useState<Workout[]>(workouts);
+  const [query, setQuery] = useState('');
+  const visibleWorkouts = localWorkouts.filter(workout => workout.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  const totalSets = workouts.reduce((total, workout) => total + workout.exercises.reduce((sum, ex) => sum + ex.sets.length, 0), 0);
+  const days = new Set(workouts.map(workout => workout.date.slice(0, 10))).size;
 
   useEffect(() => {
     setLocalWorkouts(workouts);
@@ -105,22 +111,23 @@ export function WorkoutList({
 
   return (
     <div className="workout-list">
+      <section className="dashboard-hero"><div><p className="eyebrow">{t('TON JOURNAL D’ENTRAÎNEMENT')}</p><h1>{t('Chaque séance compte.')}</h1><p>{t('Retrouve tes séances. Prépare la prochaine. Continue de progresser.')}</p><button className="btn btn-primary" onClick={onNew}><Icon name="plus" />{t('Nouvelle séance')}</button></div><div className="hero-art" aria-hidden="true"><div className="hero-orbit" /><span>MAKE<br />IT COUNT.</span><Icon name="arrow" size={32} /></div></section>
+      <section className="overview-stats" aria-label={t('Vue d’ensemble')}><div><span><Icon name="workout" />{t('Séances enregistrées')}</span><strong>{workouts.length.toString().padStart(2, '0')}<small>{t('depuis le début')}</small></strong></div><div><span><Icon name="strength" />{t('Séries planifiées')}</span><strong>{totalSets.toLocaleString(locale())}<small>{t('dans tes séances')}</small></strong></div><div><span><Icon name="calendar" />{t('Jours d’entraînement')}</span><strong>{days.toString().padStart(2, '0')}<small>{t('dates distinctes')}</small></strong></div></section>
       <div className="list-header">
-        <h2>Mes Séances</h2>
-        <button className="btn btn-primary" onClick={onNew}>
-          ➕ Nouvelle Séance
-        </button>
+        <h2>{t("Mes Séances")} <span className="count-pill">{workouts.length}</span></h2>
+        <label className="search-field"><Icon name="search" /><input aria-label={t('Rechercher une séance')} placeholder={t('Rechercher une séance')} value={query} onChange={event => setQuery(event.target.value)} /></label>
       </div>
 
       {workouts.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🏋️</div>
-          <p>Aucune séance enregistrée</p>
-          <p className="hint">Commencez par créer votre première séance !</p>
+          <div className="empty-icon"><Icon name="workout" size={32} /></div>
+          <p>{t("Aucune séance enregistrée")}</p>
+          <p className="hint">{t("Commencez par créer votre première séance !")}</p>
         </div>
       ) : (
         <div className="workout-cards">
-          {workouts.map(workout => {
+          {visibleWorkouts.length === 0 && <p className="empty-state">{t('Aucune séance ne correspond à ta recherche.')}</p>}
+          {visibleWorkouts.map((workout, index) => {
             const isExpanded = expandedId === workout.id;
             return (
               <div 
@@ -129,13 +136,12 @@ export function WorkoutList({
               >
                 <div 
                   className="card-header"
-                  onClick={() => onView(workout)}
-                  style={{ cursor: 'pointer' }}
                 >
                   <div className="card-title">
-                    <h3>{workout.name}</h3>
+                    <span className="card-index">{t('Séance')} / {String(index + 1).padStart(2, '0')}</span>
+                    <h3><button className="card-title-link" onClick={() => onView(workout)}>{workout.name}</button></h3>
                     <span className="workout-date">
-                      {new Date(workout.date).toLocaleDateString('fr-FR', {
+                      {new Date(workout.date).toLocaleDateString(locale(), {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric'
@@ -149,26 +155,25 @@ export function WorkoutList({
                       e.stopPropagation();
                       toggleExpand(workout.id);
                     }}
-                    aria-label={isExpanded ? 'Masquer les séries' : 'Afficher les séries'}
-                    title={isExpanded ? 'Masquer les séries' : 'Afficher les séries'}
+                    aria-label={isExpanded ? t("Masquer les séries") : t("Afficher les séries")}
+                    aria-expanded={isExpanded}
+                    title={isExpanded ? t("Masquer les séries") : t("Afficher les séries")}
                   >
-                    {isExpanded ? '▼' : '▶'}
+                    <span className={isExpanded ? 'chevron open' : 'chevron'}>⌄</span>
                   </button>
                 </div>
 
                 <div className="card-stats" onClick={(e) => e.stopPropagation()}>
                   <span className="stat">
-                    {workout.exercises.length} exercices
-                  </span>
+                    {workout.exercises.length} {t("exercices")} </span>
                   <span className="stat">
-                    {workout.exercises.reduce((sum, ex) => sum + ex.sets.length, 0)} séries
-                  </span>
+                    {workout.exercises.reduce((sum, ex) => sum + ex.sets.length, 0)} {t("séries")} </span>
                 </div>
 
                 {isExpanded && (
                   <div className="card-details" onClick={(e) => e.stopPropagation()}>
                     <div className="exercises-list">
-                      <h4>Exercices :</h4>
+                      <h4>{t("Exercices :")}</h4>
                       {workout.exercises.map((exercise, exIdx) => (
                         <div key={exercise.id} className="exercise-item">
                           <div className="exercise-name">
@@ -179,6 +184,10 @@ export function WorkoutList({
                               <div key={set.id} className="set-edit-group">
                                 <span 
                                   className={`set-badge editable ${editingSet?.setId === set.id && editingSet.field === 'weight' ? 'editing' : ''}`}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={`${t('Modifier')} · ${exercise.name} · ${t('Série')} ${setIdx + 1} · ${t('Poids (kg)')}`}
+                                  onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); handleSetClick(exercise.id, set.id, 'weight', getSetValue(set, 'weight')); } }}
                                   onClick={() => handleSetClick(exercise.id, set.id, 'weight', getSetValue(set, 'weight'))}
                                 >
                                   {editingSet?.setId === set.id && editingSet.field === 'weight' ? (
@@ -197,6 +206,10 @@ export function WorkoutList({
                                 </span>
                                 <span 
                                   className={`set-badge editable ${editingSet?.setId === set.id && editingSet.field === 'reps' ? 'editing' : ''}`}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={`${t('Modifier')} · ${exercise.name} · ${t('Série')} ${setIdx + 1} · Reps`}
+                                  onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); handleSetClick(exercise.id, set.id, 'reps', getSetValue(set, 'reps')); } }}
                                   onClick={() => handleSetClick(exercise.id, set.id, 'reps', getSetValue(set, 'reps'))}
                                 >
                                   {editingSet?.setId === set.id && editingSet.field === 'reps' ? (
@@ -230,9 +243,9 @@ export function WorkoutList({
                       e.stopPropagation();
                       onView(workout);
                     }}
-                    title="Voir détails"
+                    title={t("Voir détails")}
                   >
-                    👁️
+                    {t('Voir détails')}<Icon name="arrow" size={16} />
                   </button>
                   <button 
                     type="button"
@@ -241,21 +254,21 @@ export function WorkoutList({
                       e.stopPropagation();
                       onEdit(workout);
                     }}
-                    title="Modifier"
+                    title={t("Modifier")}
                   >
-                    ✏️
+                    <Icon name="edit" size={18} /><span className="sr-only">{t('Modifier')}</span>
                   </button>
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm('Supprimer cette séance ?')) {
+                      if (confirm(t("Supprimer cette séance ?"))) {
                         onDelete(workout.id);
                       }
                     }}
-                    title="Supprimer"
+                    title={t("Supprimer")}
                   >
-                    🗑️
+                    <Icon name="trash" size={18} /><span className="sr-only">{t('Supprimer')}</span>
                   </button>
                 </div>
               </div>

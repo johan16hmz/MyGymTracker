@@ -1,7 +1,8 @@
+import { t, useLanguage } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { Workout, Exercise } from '../types';
 import { TemplateSelector } from './TemplateSelector';
-import './WorkoutForm.css';
+import { Icon } from './Icon';
 
 interface WorkoutFormProps {
   workout: Workout | null;
@@ -68,6 +69,7 @@ const EXERCISE_SUGGESTIONS = [
 ];
 
 export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
+  useLanguage();
   const [name, setName] = useState(workout?.name || '');
   const [date, setDate] = useState(workout?.date || new Date().toISOString().split('T')[0]);
   const [exercises, setExercises] = useState<Exercise[]>(workout?.exercises || []);
@@ -82,8 +84,8 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
     const exerciseElement = exerciseRefs.current[exerciseToReveal];
     if (!exerciseElement) return;
 
-    exerciseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    exerciseElement.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+    exerciseElement.querySelector<HTMLInputElement>('input[type="text"]')?.focus({ preventScroll: true });
+    exerciseElement.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' });
     setExerciseToReveal(null);
   }, [exerciseToReveal, exercises]);
 
@@ -92,12 +94,12 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
     setShowTemplateSelector(false);
     // Auto-fill name if not set
     if (!name) {
-      const firstEx = selectedExercises[0]?.name || 'Nouvelle séance';
+      const firstEx = selectedExercises[0]?.name || t("Nouvelle séance");
       const templateName = firstEx.includes('Pull') ? 'Pull' :
                           firstEx.includes('Push') ? 'Push' :
                           firstEx.includes('Leg') ? 'Legs' :
                           firstEx.includes('Hack squat') || firstEx.includes('squat') ? 'Legs' :
-                          'Séance';
+                          t("Séance");
       setName(templateName);
     }
   };
@@ -213,9 +215,7 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
       <div className="workout-form">
         <TemplateSelector onSelectTemplate={handleTemplateSelect} />
         <div className="selector-cancel">
-          <button className="btn btn-secondary" onClick={() => setShowTemplateSelector(false)}>
-            Fermer
-          </button>
+          <button className="btn btn-secondary" onClick={() => setShowTemplateSelector(false)}>{t("Fermer")} </button>
         </div>
       </div>
     );
@@ -224,32 +224,30 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
   return (
     <form className="workout-form" onSubmit={handleSubmit}>
       <div className="form-header">
-        <h2>{workout ? 'Modifier la séance' : 'Nouvelle séance'}</h2>
+        <div><p className="eyebrow">{t('À TON RYTHME')}</p><h2>{workout ? t("Modifier la séance") : t("Nouvelle séance")}</h2><p className="page-description">{t('Compose ta séance, exercice après exercice.')}</p></div>
         <div className="form-actions">
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>
-            Annuler
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={!name.trim() || exercises.length === 0}>
-            Enregistrer
-          </button>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>{t("Annuler")} </button>
+          <button type="submit" className="btn btn-primary" disabled={!name.trim() || exercises.length === 0}>{t("Enregistrer")} </button>
         </div>
       </div>
 
       <div className="form-group">
-        <label>Nom de la séance</label>
+        <label htmlFor="workout-name">{t("Nom de la séance")}</label>
         <input
+          id="workout-name"
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder="Ex: Pull 1, Push, Legs..."
+          placeholder={t("Ex: Pull 1, Push, Legs...")}
           required
         />
       </div>
 
       {!workout && (
         <div className="form-group">
-          <label>Date</label>
+          <label htmlFor="workout-date">Date</label>
           <input
+            id="workout-date"
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
@@ -264,20 +262,17 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
             type="button"
             className="btn btn-primary"
             onClick={() => setShowTemplateSelector(true)}
-          >
-            📋 Charger un template de séance
-          </button>
+          ><Icon name="workout" />{t("Charger un modèle")}</button><p>{t('Pars d’une base Push, Pull ou Legs et adapte-la à tes objectifs.')}</p>
         </div>
       )}
 
       <div className="exercises-section">
         <div className="section-header">
-          <h3>Exercices</h3>
-          <button type="button" className="btn btn-secondary" onClick={addExercise}>
-            + Ajouter un exercice
-          </button>
+          <h3>{t("Exercices")}</h3>
+          <button type="button" className="btn btn-secondary" onClick={addExercise}>{t("+ Ajouter un exercice")} </button>
         </div>
 
+        {exercises.length === 0 && <div className="empty-exercises"><Icon name="plus" size={28} /><p>{t('Ta séance commence ici.')}</p><span>{t('Ajoute ton premier exercice pour préparer tes séries.')}</span></div>}
         {exercises.map((exercise, exIndex) => (
           <div
             key={exercise.id}
@@ -285,7 +280,7 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
             className="exercise-block"
           >
             <div className="exercise-header">
-              <span className="exercise-number" aria-label={`Exercice ${exIndex + 1}`}>
+              <span className="exercise-number" aria-label={`${t('Exercice')} ${exIndex + 1}`}>
                 {exIndex + 1}
               </span>
               <div className="exercise-name-input">
@@ -293,7 +288,8 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                   type="text"
                   value={exercise.name}
                   onChange={e => updateExerciseName(exercise.id, e.target.value)}
-                  placeholder="Nom de l'exercice"
+                  placeholder={t("Nom de l'exercice")}
+                  aria-label={`${t("Nom de l'exercice")} ${exIndex + 1}`}
                   list={`exercise-suggestions-${exIndex}`}
                 />
                 <datalist id={`exercise-suggestions-${exIndex}`}>
@@ -302,14 +298,14 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                   ))}
                 </datalist>
               </div>
-              <div className="exercise-order-controls" aria-label="Changer l'ordre de l'exercice">
+              <div className="exercise-order-controls" aria-label={t("Changer l'ordre de l'exercice")}>
                 <button
                   type="button"
                   className="btn btn-icon"
                   onClick={() => moveExercise(exercise.id, -1)}
                   disabled={exIndex === 0}
-                  aria-label="Monter l'exercice"
-                  title="Monter"
+                  aria-label={t("Monter l'exercice")}
+                  title={t("Monter")}
                 >
                   ↑
                 </button>
@@ -318,8 +314,8 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                   className="btn btn-icon"
                   onClick={() => moveExercise(exercise.id, 1)}
                   disabled={exIndex === exercises.length - 1}
-                  aria-label="Descendre l'exercice"
-                  title="Descendre"
+                  aria-label={t("Descendre l'exercice")}
+                  title={t("Descendre")}
                 >
                   ↓
                 </button>
@@ -328,6 +324,7 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                 type="button"
                 className="btn btn-icon btn-danger"
                 onClick={() => removeExercise(exercise.id)}
+                aria-label={t('Supprimer l’exercice')}
               >
                 ×
               </button>
@@ -335,9 +332,9 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
 
             <div className="sets-table">
               <div className="sets-header">
-                <span>Série</span>
-                <span>Poids (kg)</span>
-                <span>Reps (ex: 6-8)</span>
+                <span>{t("Série")}</span>
+                <span>{t("Poids (kg)")}</span>
+                <span>{t("Reps (ex: 6-8)")}</span>
                 <span></span>
               </div>
               {exercise.sets.map((set, setIndex) => (
@@ -345,6 +342,7 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                   <span className="set-number">{setIndex + 1}</span>
                   <input
                     type="number"
+                    aria-label={`${t('Poids (kg)')} · ${t('Série')} ${setIndex + 1}`}
                     value={set.weight || ''}
                     onChange={e => updateSet(exercise.id, set.id, 'weight', parseFloat(e.target.value) || 0)}
                     placeholder="kg"
@@ -353,6 +351,7 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                   />
                   <input
                     type="text"
+                    aria-label={`Reps · ${t('Série')} ${setIndex + 1}`}
                     value={repsInputValues[set.id] !== undefined ? repsInputValues[set.id] : (set.repsMin && set.repsMax ? `${set.repsMin}-${set.repsMax}` : set.reps || '')}
                     onChange={e => {
                       setRepsInputValues(prev => ({
@@ -386,12 +385,13 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
                         updateSet(exercise.id, set.id, 'repsMax', 0);
                       }
                     }}
-                    placeholder="Ex: 10 ou 6-8"
+                    placeholder={t("Ex: 10 ou 6-8")}
                   />
                   <button
                     type="button"
                     className="btn btn-icon btn-danger"
                     onClick={() => removeSet(exercise.id, set.id)}
+                    aria-label={`${t('Supprimer la série')} ${setIndex + 1}`}
                   >
                     ×
                   </button>
@@ -403,9 +403,7 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
               type="button"
               className="btn btn-small"
               onClick={() => addSet(exercise.id)}
-            >
-              + Ajouter une série
-            </button>
+            >{t("+ Ajouter une série")} </button>
           </div>
         ))}
       </div>
