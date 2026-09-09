@@ -62,3 +62,23 @@ Ajoute ensuite ce serveur dans la configuration MCP de ton client IA :
 ```
 
 Une fois le serveur chargé, utilise l’outil `auth_login` avec l’e-mail et le mot de passe de ton compte. Consulte `mcp-server/README.md` pour la liste complète des outils.
+
+### Connexion MCP distante sur Vercel
+
+Le même serveur est également disponible en HTTP à l’adresse `https://mygymtracker-five.vercel.app/api/mcp`.
+Pour obtenir un jeton Supabase, envoie ton e-mail et ton mot de passe à `https://mygymtracker-five.vercel.app/api/mcp-login`, puis configure ce jeton dans ton client MCP :
+
+```json
+{
+  "mcpServers": {
+    "mygymtracker": {
+      "url": "https://mygymtracker-five.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer TON_JETON_SUPABASE"
+      }
+    }
+  }
+}
+```
+
+Le jeton est temporaire et doit être renouvelé lorsqu’il expire. Ne mets jamais ton mot de passe dans le fichier de configuration MCP.

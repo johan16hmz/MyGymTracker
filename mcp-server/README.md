@@ -40,3 +40,26 @@ Après avoir ajouté le serveur dans ton client IA, appelle `auth_login` avec l�
 - `templates_list`, `exercise_suggestions`
 
 Les requêtes sont toujours limitées à l’utilisateur connecté. Les règles RLS Supabase restent donc actives.
+
+## Connexion distante Vercel
+
+Le projet expose aussi un endpoint MCP Streamable HTTP sur `https://mygymtracker-five.vercel.app/api/mcp`. Pour l’utiliser depuis un client distant :
+
+1. Fais un `POST` JSON vers `https://mygymtracker-five.vercel.app/api/mcp-login` avec `{"email":"...","password":"..."}`.
+2. Récupère `access_token` dans la réponse.
+3. Configure l’URL MCP avec l’en-tête `Authorization: Bearer <access_token>`.
+
+Exemple :
+
+```json
+{
+  "mcpServers": {
+    "mygymtracker": {
+      "url": "https://mygymtracker-five.vercel.app/api/mcp",
+      "headers": { "Authorization": "Bearer TON_JETON_SUPABASE" }
+    }
+  }
+}
+```
+
+Le serveur distant est stateless : chaque requête est authentifiée par le jeton Supabase et les données restent isolées par utilisateur. Le jeton expire ; il faut alors refaire une connexion avec `mcp-login`.
