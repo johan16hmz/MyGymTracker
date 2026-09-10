@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 export type Language = 'fr' | 'en';
+export type WeightUnit = 'kg' | 'lb';
 const listeners = new Set<() => void>();
 let language: Language = 'fr';
 try { if (localStorage.getItem('mygymtracker-language') === 'en') language = 'en'; } catch { /* Storage may be disabled. */ }
@@ -15,6 +16,12 @@ export function useLanguage() {
 }
 export function t(text: string): string { return language === 'en' ? (english[text] ?? text) : text; }
 export function locale() { return language === 'en' ? 'en-GB' : 'fr-FR'; }
+let weightUnit: WeightUnit = 'kg';
+const unitListeners = new Set<() => void>();
+try { if (localStorage.getItem('mygymtracker-weight-unit') === 'lb') weightUnit = 'lb'; } catch { /* Storage may be disabled. */ }
+export function setWeightUnit(next: WeightUnit) { weightUnit = next; try { localStorage.setItem('mygymtracker-weight-unit', next); } catch {} unitListeners.forEach(listener => listener()); }
+export function useWeightUnit() { return useSyncExternalStore(listener => { unitListeners.add(listener); return () => unitListeners.delete(listener); }, () => weightUnit); }
+export function formatWeight(value: number) { const converted = weightUnit === 'lb' ? value * 2.2046226218 : value; return `${Math.round(converted * 10) / 10} ${weightUnit}`; }
 export const english: Record<string, string> = {
   "Chargement de tes entraînements…":"Loading your training…",
   "Aller au contenu":"Skip to content", "TON ESPACE":"YOUR SPACE", "La régularité fait la différence.":"Consistency makes the difference.", "Une séance à la fois.":"One workout at a time.", "Mon compte":"My account", "Ton espace personnel":"Your personal space",
@@ -22,7 +29,7 @@ export const english: Record<string, string> = {
   "TON JOURNAL D’ENTRAÎNEMENT":"YOUR TRAINING JOURNAL", "Chaque séance compte.":"Make every workout count.", "Retrouve tes séances. Prépare la prochaine. Continue de progresser.":"Revisit your workouts. Plan the next one. Keep progressing.", "Vue d’ensemble":"Overview", "Séances enregistrées":"Saved workouts", "depuis le début":"all time", "Séries planifiées":"Planned sets", "dans tes séances":"across your workouts", "Jours d’entraînement":"Training days", "dates distinctes":"unique dates", "Rechercher une séance":"Search workouts", "Aucune séance ne correspond à ta recherche.":"No workouts match your search.",
   "À TON RYTHME":"AT YOUR PACE", "Compose ta séance, exercice après exercice.":"Build your workout, one exercise at a time.", "Charger un modèle":"Load a template", "Pars d’une base Push, Pull ou Legs et adapte-la à tes objectifs.":"Start with Push, Pull or Legs and make it your own.", "Ta séance commence ici.":"Your workout starts here.", "Ajoute ton premier exercice pour préparer tes séries.":"Add your first exercise to plan your sets.", "Supprimer l’exercice":"Delete exercise", "Supprimer la série":"Delete set", "DANS LES DÉTAILS":"A CLOSER LOOK", "UNE BASE POUR PROGRESSER":"A FOUNDATION FOR PROGRESS", "Apparence":"Appearance", "Clair":"Light", "Sombre":"Dark",
   "Bloc force":"Strength block", "Exercice":"Exercise",
-  "Réglages":"Settings", "Langue":"Language", "Langue de l’application":"App language", "La langue est mémorisée sur cet appareil.":"Your language is saved on this device.",
+  "Réglages":"Settings", "Langue":"Language", "Langue de l’application":"App language", "La langue est mémorisée sur cet appareil.":"Your language is saved on this device.", "Unité de poids":"Weight unit", "Choisis l’unité utilisée pour afficher les charges.":"Choose the unit used to display weights.", "Kilogrammes (kg)":"Kilograms (kg)", "Livres (lb)":"Pounds (lb)",
   "Déconnexion":"Log out", "Suivi d'entraînement intelligent":"Smart workout tracking", "Séances":"Workouts", "Force":"Strength", "Chargement des blocs…":"Loading blocks…",
   "Impossible de charger tes séances et blocs. Recharge la page pour réessayer.":"Unable to load your workouts and blocks. Reload the page to try again.",
   "Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?":"Your block has unsaved changes. Leave anyway?",

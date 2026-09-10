@@ -1,4 +1,4 @@
-import { t, useLanguage, locale } from '../i18n';
+import { t, useLanguage, locale, formatWeight, useWeightUnit } from '../i18n';
 import type { Workout } from '../types';
 import { Icon } from './Icon';
 
@@ -16,6 +16,7 @@ export function WorkoutDetail({
   onBack,
 }: WorkoutDetailProps) {
   useLanguage();
+  useWeightUnit();
   const handleDelete = () => {
     if (confirm(t("Êtes-vous sûr de vouloir supprimer cette séance ?"))) {
       onDelete(workout.id);
@@ -65,7 +66,7 @@ export function WorkoutDetail({
                 <div key={set.id} className="set-item">
                   <span className="set-number">{t("Série")} {setIndex + 1}</span>
                   <div className="set-details">
-                    <span className="set-weight">{set.weight}kg</span>
+                    <span className="set-weight">{formatWeight(set.weight)}</span>
                     <span className="set-reps">×{set.repsMin && set.repsMax ? `${set.repsMin}-${set.repsMax}` : set.reps || '?'}</span>
                   </div>
                 </div>

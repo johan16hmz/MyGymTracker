@@ -1,4 +1,4 @@
-import { t, useLanguage, locale } from '../i18n';
+import { t, useLanguage, locale, formatWeight, useWeightUnit } from '../i18n';
 import { useState, useCallback, useEffect } from 'react';
 import type { Workout, Exercise } from '../types';
 import { Icon } from './Icon';
@@ -21,6 +21,7 @@ export function WorkoutList({
   onUpdate
 }: WorkoutListProps) {
   useLanguage();
+  useWeightUnit();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; setId: string; field: 'weight' | 'reps' } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -201,7 +202,7 @@ export function WorkoutList({
                                       className="set-edit-input"
                                     />
                                   ) : (
-                                    <>S{setIdx + 1}: {set.weight > 0 ? `${set.weight}kg` : '?'}</>
+                                    <>S{setIdx + 1}: {set.weight > 0 ? formatWeight(set.weight) : '?'}</>
                                   )}
                                 </span>
                                 <span 
