@@ -17,7 +17,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'strength'>('list');
+  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'strength' | 'nutrition'>('list');
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [strengthPending, setStrengthPending] = useState(false);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
@@ -126,15 +126,20 @@ function App() {
         <button className="brand" onClick={handleBackToList}><span className="brand-mark"><Icon name="logo" /></span><span>MyGym<span className="brand-light">Tracker</span><small>TRAINING JOURNAL</small></span></button>
         <p className="nav-caption">{t('TON ESPACE')}</p>
         <nav className="app-sections" aria-label="Sections">
-          <button className={`nav-item ${view !== 'strength' ? 'active' : ''}`} aria-current={view !== 'strength' ? 'page' : undefined} onClick={handleBackToList}><Icon name="workout" />{t("Séances")}<span className="nav-dot" /></button>
+          <button className={`nav-item ${view !== 'strength' && view !== 'nutrition' ? 'active' : ''}`} aria-current={view !== 'strength' && view !== 'nutrition' ? 'page' : undefined} onClick={handleBackToList}><Icon name="workout" />{t("Séances")}<span className="nav-dot" /></button>
           <button className={`nav-item ${view === 'strength' ? 'active' : ''}`} aria-current={view === 'strength' ? 'page' : undefined} onClick={() => setView('strength')}><Icon name="strength" />{t("Force")}<span className="nav-dot" /></button>
+          <button className={`nav-item ${view === 'nutrition' ? 'active' : ''}`} aria-current={view === 'nutrition' ? 'page' : undefined} onClick={() => {
+            if (strengthPending && !confirm(t("Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?"))) return;
+            setView('nutrition');
+          }}><Icon name="nutrition" />Nutrition<span className="nav-dot" /></button>
         </nav>
         <div className="sidebar-note"><Icon name="strength" size={28} /><p>{t('La régularité fait la différence.')}</p><span>{t('Une séance à la fois.')}</span></div>
         <div className="header-user"><Settings /><div className="user-profile"><span className="avatar">{currentUser[0].toUpperCase()}</span><span className="username">{currentUser}<small>{t('Mon compte')}</small></span></div><button className="logout-button" onClick={handleLogout}><Icon name="logout" />{t('Déconnexion')}</button></div>
       </header>
 
       <main className="app-main" id="main-content">
-        <div className="workspace-topbar"><span>MYGYMTRACKER <span className="breadcrumb">/ {t(view === 'strength' ? 'Force' : 'Séances')}</span></span><span className="workspace-status"><span />{t('Ton espace personnel')}</span></div>
+        <div className="workspace-topbar"><span>MYGYMTRACKER <span className="breadcrumb">/ {t(view === 'nutrition' ? 'Nutrition' : view === 'strength' ? 'Force' : 'Séances')}</span></span><span className="workspace-status"><span />{t('Ton espace personnel')}</span></div>
+        {view === 'nutrition' && <section aria-labelledby="nutrition-title"><h1 id="nutrition-title">Nutrition</h1><div className="empty-state"><div className="empty-icon"><Icon name="nutrition" size={32} /></div><p>Soon</p></div></section>}
         {(view === 'strength' || view === 'list') && loadingWorkouts && <div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de tes entraînements…')}</div>}
         {(view === 'strength' || view === 'list') && loadError && <p role="alert">{loadError}</p>}
         {view === 'strength' && userId && !loadingWorkouts && !loadError && <Strength key={userId} userId={userId} workouts={workouts} onPendingChange={setStrengthPending} onSaved={saved => {

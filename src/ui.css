@@ -270,8 +270,8 @@ small { font-size: .78rem; }
   .app-header { position: relative; width: auto; padding: 18px 20px; flex-direction: row; align-items: center; gap: 12px; overflow: visible; }
   .brand { font-size: 1rem; }.brand-mark { width: 34px; height: 34px; }.brand small { font-size: .46rem; }
   .nav-caption, .sidebar-note, .user-profile { display: none; }
-  .app-sections { position: fixed; bottom: 0; left: 0; right: 0; background: #19231ef5; backdrop-filter: blur(16px); grid-template-columns: 1fr 1fr; padding: 10px 18px calc(10px + env(safe-area-inset-bottom)); gap: 12px; border-top: 1px solid #ffffff12; }
-  .nav-item { justify-content: center; padding: 12px; min-height: 48px; }.nav-dot { display: none; }
+  .app-sections { position: fixed; bottom: 0; left: 0; right: 0; background: #19231ef5; backdrop-filter: blur(16px); grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 6px; border-top: 1px solid #ffffff12; }
+  .nav-item { justify-content: center; gap: 6px; padding: 12px 6px; font-size: .8rem; min-height: 48px; }.nav-dot { display: none; }
   .header-user { border: 0; padding: 0; margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .logout-button { font-size: 0; padding: 8px; }.logout-button svg { width: 18px; }
   .header-user .language-settings summary { font-size: 0; padding: 8px; gap: 0; }.header-user .language-settings summary svg { width: 20px; }
