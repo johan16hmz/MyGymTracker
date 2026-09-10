@@ -3,7 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Workout, Exercise } from '../src/types';
-import { calculateWeight, STRENGTH_EXERCISES, WEEK_RPES } from '../src/strength';
+import { calculateWeight, STRENGTH_EXERCISES, WEEK_RPES } from '../src/strength.js';
 import type { StrengthBlock } from '../src/strength';
 
 export const runtime = 'nodejs';
