@@ -18,6 +18,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@supabase/supabase-js": "^2.107.0",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "firebase": "^12.11.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

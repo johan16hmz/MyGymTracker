@@ -5,6 +5,9 @@ import { z } from 'zod';
 import type { Workout, Exercise } from '../src/types';
 import { createStrengthBlock } from '../src/strength.js';
 import type { StrengthBlock } from '../src/strength';
+import { estimateCalories, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME } from '../src/nutrition.js';
+import type { FoodEntry, NutritionDay, NutritionProfile } from '../src/nutrition';
+import { normalizeOpenFoodFacts } from '../src/nutritionFood.js';
 
 export const runtime = 'nodejs';
 
@@ -92,7 +95,37 @@ function normalizeWorkout(input: z.infer<typeof workoutSchema>) {
 async function fetchWorkouts(client: SupabaseClient, userId: string) {
   const { data, error } = await client.from('workouts').select('*').eq('user_id', userId).order('date', { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as Workout[];
+  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME);
+}
+
+const nutritionProfileSchema = z.object({
+  goal: z.enum(['lose', 'maintain', 'gain']), targetKg: z.number().min(25).max(400), age: z.number().int().min(18).max(100),
+  heightCm: z.number().min(100).max(250), weightKg: z.number().min(25).max(400),
+  activity: z.enum(['low', 'moderate', 'active', 'veryActive']), equationSex: z.enum(['female', 'male']),
+  calorieOverride: z.number().min(1200).max(6000).optional(),
+});
+const nutritionFoodSchema = z.object({
+  name: z.string().trim().min(1).max(150), brand: z.string().max(100).optional(), barcode: z.string().optional(),
+  source: z.enum(['openfoodfacts', 'manual']), unit: z.enum(['g', 'ml']),
+  kcal100: z.number().min(0), protein100: z.number().min(0), carbs100: z.number().min(0), fat100: z.number().min(0),
+});
+const nutritionDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const nutritionMealSchema = z.enum(['breakfast', 'lunch', 'snack', 'dinner']);
+
+async function nutritionRecord(client: SupabaseClient, userId: string, name: string, date?: string): Promise<Workout | undefined> {
+  let query = client.from('workouts').select('*').eq('user_id', userId).eq('name', name);
+  if (date) query = query.eq('date', date);
+  const { data, error } = await query.limit(1);
+  if (error) throw new Error(error.message);
+  return data?.[0] as Workout | undefined;
+}
+
+async function writeNutritionRecord(client: SupabaseClient, userId: string, name: string, date: string, exercises: Exercise[], existing?: Workout) {
+  const payload = { name, date, exercises };
+  const query = existing ? client.from('workouts').update(payload).eq('id', existing.id).eq('user_id', userId) : client.from('workouts').insert({ ...payload, user_id: userId, created_at: new Date().toISOString() });
+  const { data, error } = await query.select('*').single();
+  if (error) throw new Error(error.message);
+  return data as Workout;
 }
 
 function registerTools(server: McpServer, client: SupabaseClient, user: User) {
@@ -284,6 +317,65 @@ function registerTools(server: McpServer, client: SupabaseClient, user: User) {
       const { data: saved, error } = await client.from('workouts').update({ exercises: workout.exercises.map(exercise => exercise.strengthBlock ? { ...exercise, strengthBlock: nextBlock } : exercise) }).eq('id', workoutId).eq('user_id', user.id).select('*').single();
       if (error) throw new Error(error.message);
       return result(saved);
+    } catch (error) { return toolError(error); }
+  });
+
+  server.registerTool('nutrition_get_profile', { description: 'Lire le profil Nutrition et les calories estimées.', inputSchema: {} }, async () => {
+    try {
+      const record = await nutritionRecord(client, user.id, NUTRITION_PROFILE_NAME);
+      const profile = record?.exercises.find(exercise => exercise.nutritionProfile)?.nutritionProfile;
+      return result(profile ? { profile, estimate: estimateCalories(profile) } : { profile: null });
+    } catch (error) { return toolError(error); }
+  });
+
+  server.registerTool('nutrition_save_profile', { description: 'Créer ou modifier le profil Nutrition du compte.', inputSchema: nutritionProfileSchema.shape }, async input => {
+    try {
+      const profile = input as NutritionProfile;
+      const estimate = estimateCalories(profile);
+      const existing = await nutritionRecord(client, user.id, NUTRITION_PROFILE_NAME);
+      await writeNutritionRecord(client, user.id, NUTRITION_PROFILE_NAME, existing?.date ?? new Date().toISOString().slice(0, 10), [{ id: existing?.exercises[0]?.id ?? newId(), name: 'Nutrition profile', sets: [], nutritionProfile: profile }], existing);
+      return result({ profile, estimate });
+    } catch (error) { return toolError(error); }
+  });
+
+  server.registerTool('nutrition_get_day', { description: 'Lire les quatre repas, calories et macronutriments d’une date.', inputSchema: { date: nutritionDateSchema } }, async ({ date }) => {
+    try {
+      const record = await nutritionRecord(client, user.id, NUTRITION_DAY_NAME, date);
+      return result(record?.exercises.find(exercise => exercise.nutritionDay)?.nutritionDay ?? { date, entries: [] });
+    } catch (error) { return toolError(error); }
+  });
+
+  server.registerTool('nutrition_upsert_food', {
+    description: 'Ajouter un aliment ou modifier un aliment existant dans un repas du journal Nutrition. Les valeurs sont pour 100 g ou 100 ml.',
+    inputSchema: { date: nutritionDateSchema, meal: nutritionMealSchema, food: nutritionFoodSchema, quantity: z.number().positive().max(10000), entryId: z.string().optional() },
+  }, async ({ date, meal, food, quantity, entryId }) => {
+    try {
+      const existing = await nutritionRecord(client, user.id, NUTRITION_DAY_NAME, date);
+      const day: NutritionDay = existing?.exercises.find(exercise => exercise.nutritionDay)?.nutritionDay ?? { date, entries: [] };
+      if (entryId && !day.entries.some(entry => entry.id === entryId)) throw new Error('Aliment introuvable dans cette journée.');
+      const entry: FoodEntry = { id: entryId ?? newId(), meal, food, quantity, addedAt: day.entries.find(item => item.id === entryId)?.addedAt ?? new Date().toISOString() };
+      const next: NutritionDay = { date, entries: [...day.entries.filter(item => item.id !== entry.id), entry] };
+      await writeNutritionRecord(client, user.id, NUTRITION_DAY_NAME, date, [{ id: existing?.exercises[0]?.id ?? newId(), name: 'Nutrition day', sets: [], nutritionDay: next }], existing);
+      return result(entry);
+    } catch (error) { return toolError(error); }
+  });
+
+  server.registerTool('nutrition_remove_food', { description: 'Retirer un aliment d’une journée Nutrition.', inputSchema: { date: nutritionDateSchema, entryId: z.string().min(1) } }, async ({ date, entryId }) => {
+    try {
+      const existing = await nutritionRecord(client, user.id, NUTRITION_DAY_NAME, date);
+      const day = existing?.exercises.find(exercise => exercise.nutritionDay)?.nutritionDay;
+      if (!existing || !day || !day.entries.some(entry => entry.id === entryId)) throw new Error('Aliment introuvable dans cette journée.');
+      const next: NutritionDay = { ...day, entries: day.entries.filter(entry => entry.id !== entryId) };
+      await writeNutritionRecord(client, user.id, NUTRITION_DAY_NAME, date, [{ id: existing.exercises[0].id, name: 'Nutrition day', sets: [], nutritionDay: next }], existing);
+      return result({ removed: true, entryId });
+    } catch (error) { return toolError(error); }
+  });
+
+  server.registerTool('nutrition_lookup_barcode', { description: 'Chercher les valeurs d’un aliment dans Open Food Facts par code-barres.', inputSchema: { barcode: z.string().regex(/^\d{8,14}$/) } }, async ({ barcode }) => {
+    try {
+      const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=code,product_name,product_name_fr,brands,nutriments,quantity,product_quantity_unit`, { headers: { 'User-Agent': 'MyGymTracker/1.0 (https://mygymtracker-five.vercel.app)' }, signal: AbortSignal.timeout(10000) });
+      if (!response.ok) throw new Error('Open Food Facts indisponible.');
+      return result(normalizeOpenFoodFacts(await response.json()));
     } catch (error) { return toolError(error); }
   });
 

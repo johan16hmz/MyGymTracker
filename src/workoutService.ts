@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Workout } from './types';
+import { isNutritionRecord } from './nutritionService';
 
 function checkClient() {
   if (!supabase) {
@@ -41,7 +42,7 @@ export async function getUserWorkouts(userId: string) {
       .order('date', { ascending: false });
 
     if (error) throw error;
-    return { success: true, data: data as Workout[] };
+    return { success: true, data: (data as Workout[]).filter(workout => !isNutritionRecord(workout)) };
   } catch (error) {
     console.error('Erreur récupération séances:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue', data: [] as Workout[] };

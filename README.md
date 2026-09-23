@@ -12,18 +12,29 @@ Application web de suivi d'entraînement en salle de sport. Créez, gérez et an
 - **Liste des séances** — vue carte avec stats, édition en ligne et expansion
 - **Détail d'une séance** — statistiques complètes, grille d'exercices, édition et suppression
 - **Force** — blocs de 4 semaines pour tractions, bench, dips et squat, charges calculées depuis le tableau RPE et historique des performances
+- **Nutrition** — objectif calorique estimé, journal des quatre repas, calories et macronutriments, lecture des codes-barres via Open Food Facts
 - **Interface responsive** — adaptée mobile et desktop
 - **Thème sombre** — design dark mode
 
 ## Utiliser l’espace Force
 
-Ouvrir **Force**, saisir les 1RM visés et générer un bloc. Les semaines suivent les RPE 7, 8, 8,5 et 9, avec un objectif en 5 reps et un en 3 reps pour chaque exercice. Les charges utilisent le tableau fourni, arrondies au plus proche à 2,5 kg pour bench/squat et 1,25 kg pour dips/tractions (égalité arrondie vers le haut). Pour les mouvements lestés, les pourcentages s’appliquent au lest seul, sans poids de corps.
+Ouvrir **Force**, saisir les 1RM visés et le poids du corps, puis générer un bloc. Les semaines suivent les RPE 7, 8, 8,5 et 9, avec un objectif en 5 reps et en 3 reps pour chaque exercice. Les charges utilisent le tableau fourni, arrondies au plus proche à 2,5 kg pour bench/squat et 1,25 kg pour dips/tractions. Pour les mouvements lestés, le pourcentage s’applique au poids du corps et au lest réunis ; seul le lest externe est affiché.
 
 Les charges prévues peuvent être ajustées. Ajouter les séries réalisées (charge, reps, RPE ressenti et note), puis cliquer sur **Enregistrer le bloc**. La date est automatique. Créer un nouveau bloc conserve les précédents.
 
 Les blocs sont stockés dans la table Supabase `workouts`, dans le JSON `exercises[].strengthBlock`. Ils utilisent les permissions du compte existant et sont exclus de la liste des séances ordinaires. Aucune migration SQL n’est nécessaire.
 
 Vérification locale : `node --test tests/strength.test.mjs`, puis `npm.cmd run build`.
+
+## Utiliser l’espace Nutrition
+
+Ouvrir **Nutrition**, renseigner l’objectif (perte, maintien ou gain), le poids actuel et visé, l’âge, la taille, la formule homme ou femme et la fréquence d’entraînement. L’objectif calorique est une **estimation pour adultes** basée sur l’[équation de Mifflin–St Jeor](https://pubmed.ncbi.nlm.nih.gov/2305711/) et un facteur d’activité approximatif. Pour la perte ou la prise, l’application applique un écart modéré d’environ 10 %, limité à 300 kcal. Pour la perte, elle ne propose pas moins de 1 200 kcal/jour, conformément au [repère du CDC](https://stacks.cdc.gov/view/cdc/146517), et demande un avis professionnel si l’estimation de maintien est déjà trop basse. L’objectif peut être ajusté manuellement. Le poids visé fixe la direction de l’objectif ; aucun délai de progression n’est supposé.
+
+Le journal permet d’ajouter des aliments au petit-déjeuner, déjeuner, en-cas et dîner pour chaque date. Saisir une quantité en g ou ml ; les calories, protéines, glucides et lipides sont recalculés. On peut modifier ou retirer une ligne. La caméra lit les codes-barres EAN/UPC et les QR codes contenant un lien produit Open Food Facts. La saisie manuelle du code et des macros reste disponible si la caméra ou le produit est indisponible. Les valeurs nutritionnelles sont fournies par [Open Food Facts](https://world.openfoodfacts.org/) (ODbL) et doivent être vérifiées sur l’emballage.
+
+Profil et journées sont stockés dans la table Supabase `workouts` avec des marqueurs dédiés dans `exercises`, et exclus de la liste des séances. Ils utilisent les permissions du compte existant ; aucune migration SQL n’est nécessaire. Le proxy `/api/food` ajoute un User-Agent identifiable pour Open Food Facts. En local, Vite fournit le même proxy.
+
+Vérification locale : `node --test tests/nutrition.test.mjs`, puis `npm.cmd run build`.
 
 ## Stack technique
 

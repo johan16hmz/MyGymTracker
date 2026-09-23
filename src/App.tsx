@@ -1,5 +1,5 @@
 import { t, useLanguage } from './i18n';
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import type { Workout } from './types';
 import { WorkoutList } from './components/WorkoutList';
 import { WorkoutForm } from './components/WorkoutForm';
@@ -11,6 +11,8 @@ import { onAuthStateChange, signOut } from './authService';
 import { getUserWorkouts, addWorkout, updateWorkout, deleteWorkout } from './workoutService';
 import { Icon } from './components/Icon';
 import { Settings } from './components/Settings';
+
+const Nutrition = lazy(() => import('./components/Nutrition').then(module => ({ default: module.Nutrition })));
 
 function App() {
   useLanguage();
@@ -139,7 +141,7 @@ function App() {
 
       <main className="app-main" id="main-content">
         <div className="workspace-topbar"><span>MYGYMTRACKER <span className="breadcrumb">/ {t(view === 'nutrition' ? 'Nutrition' : view === 'strength' ? 'Force' : 'Séances')}</span></span><span className="workspace-status"><span />{t('Ton espace personnel')}</span></div>
-        {view === 'nutrition' && <section aria-labelledby="nutrition-title"><h1 id="nutrition-title">Nutrition</h1><div className="empty-state"><div className="empty-icon"><Icon name="nutrition" size={32} /></div><p>Soon</p></div></section>}
+        {view === 'nutrition' && userId && <Suspense fallback={<div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de ton journal nutrition…')}</div>}><Nutrition userId={userId} /></Suspense>}
         {(view === 'strength' || view === 'list') && loadingWorkouts && <div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de tes entraînements…')}</div>}
         {(view === 'strength' || view === 'list') && loadError && <p role="alert">{loadError}</p>}
         {view === 'strength' && userId && !loadingWorkouts && !loadError && <Strength key={userId} userId={userId} workouts={workouts} onPendingChange={setStrengthPending} onSaved={saved => {
