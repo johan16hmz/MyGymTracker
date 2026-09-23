@@ -1,8 +1,8 @@
 import { t, useLanguage, locale } from '../i18n';
 import { useEffect, useState } from 'react';
 import type { Workout } from '../types';
-import { calculateWeight, createStrengthBlock, RPE_TABLE, STRENGTH_EXERCISES, WEEK_RPES } from '../strength';
-import type { StrengthBlock, StrengthPrescription, StrengthPerformance } from '../strength';
+import { calculateWeight, createStrengthBlock, RPE_TABLE, STRENGTH_EXERCISES, updateStrengthLoads, WEEK_RPES } from '../strength';
+import type { StrengthBlock, StrengthExercise, StrengthPrescription, StrengthPerformance } from '../strength';
 import { getStrengthBlock, saveStrengthBlock } from '../strengthService';
 
 interface Props {
@@ -40,6 +40,32 @@ function PerformanceForm({ prescription, step, onAdd }: {
   </>;
 }
 
+function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
+  exercise: StrengthExercise;
+  bodyWeight?: number;
+  saving: boolean;
+  onApply: (target: number, bodyWeight?: number) => void;
+}) {
+  useLanguage();
+  const [target, setTarget] = useState(String(exercise.target));
+  const [bodyWeightInput, setBodyWeightInput] = useState(bodyWeight === undefined ? '' : String(bodyWeight));
+  const changed = Number(target) !== exercise.target || (exercise.weighted && Number(bodyWeightInput) !== bodyWeight);
+  return <form className="force-load-editor" onSubmit={event => {
+    event.preventDefault();
+    if (!changed) return;
+    onApply(Number(target), exercise.weighted ? Number(bodyWeightInput) : undefined);
+  }}>
+    <label>{t("1RM visé")} ({exercise.weighted ? t("lest ajouté") : t("charge totale")}, kg)
+      <input type="number" min={exercise.step} step="any" required disabled={saving} value={target} onChange={event => setTarget(event.target.value)} />
+    </label>
+    {exercise.weighted && <label>{t("Poids du corps (kg)")}
+      <input type="number" min="1" step="any" required disabled={saving} value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
+    </label>}
+    <button className="btn btn-secondary btn-small" type="submit" disabled={!changed || saving}>{t("Recalculer les charges")}</button>
+    <small>{exercise.weighted ? t("Le poids du corps est commun aux dips et aux tractions. Les charges prévues sont recalculées ; les performances enregistrées restent intactes.") : t("Les charges prévues de cet exercice sont recalculées ; les performances enregistrées restent intactes.")}</small>
+  </form>;
+}
+
 export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) {
   useLanguage();
   const records = workouts.filter(workout => getStrengthBlock(workout));
@@ -49,6 +75,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   const [exerciseId, setExerciseId] = useState('pullup');
   const [activeWeek, setActiveWeek] = useState(1);
   const [targets, setTargets] = useState<Record<string, string>>(Object.fromEntries(STRENGTH_EXERCISES.map(ex => [ex.id, String(ex.target)])));
+  const [bodyWeightInput, setBodyWeightInput] = useState('');
   const [name, setName] = useState(`${t('Bloc force')} ${records.length + 1}`);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -96,18 +123,21 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
 
     {creating ? <form className="force-panel" onSubmit={event => {
       event.preventDefault();
-      void persist(createStrengthBlock(Object.fromEntries(Object.entries(targets).map(([key, value]) => [key, Number(value)]))), name.trim());
+      void persist(createStrengthBlock(Object.fromEntries(Object.entries(targets).map(([key, value]) => [key, Number(value)])), Number(bodyWeightInput)), name.trim());
     }}>
       <h3>{t("Préparer mon bloc de 4 semaines")}</h3>
       <p>{t("RPE 7 → 8 → 8,5 → 9. Chaque semaine propose un travail en 5 reps et en 3 reps pour chaque exercice.")}</p>
       <label>{t("Nom du bloc")}<input value={name} onChange={event => setName(event.target.value)} required maxLength={100} /></label>
+      <label className="force-bodyweight">{t("Poids du corps (kg)")}<input type="number" min="1" step="any" required value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
+        <small>{t("Utilisé pour calculer le lest des dips et des tractions.")}</small>
+      </label>
       <div className="force-targets">{STRENGTH_EXERCISES.map(ex => <label key={ex.id}>
         <strong>{ex.name}</strong><span>{t("1RM visé ·")} {ex.weighted ? t("lest ajouté") : t("charge totale")} (kg)</span>
         <input type="number" min={ex.step} step="any" required value={targets[ex.id]} onChange={event => setTargets({ ...targets, [ex.id]: event.target.value })} />
         <small>{t("Arrondi au plus proche :")} {n(ex.step)} kg</small>
-        {Number(targets[ex.id]) > 0 && Number.isFinite(Number(targets[ex.id])) && <small>{t("Sem. 1 · 5 reps :")} {n(calculateWeight(Number(targets[ex.id]), 5, 7, ex.step))} kg</small>}
+        {Number(targets[ex.id]) > 0 && Number.isFinite(Number(targets[ex.id])) && (!ex.weighted || Number(bodyWeightInput) > 0) && <small>{t("Sem. 1 · 5 reps :")} {n(calculateWeight(Number(targets[ex.id]), 5, 7, ex.step, ex.weighted ? Number(bodyWeightInput) : 0))} kg</small>}
       </label>)}</div>
-      <p className="force-help">{t("Calcul : 1RM visé × pourcentage du tableau, puis arrondi. Pour les dips et tractions, le calcul porte uniquement sur le lest ; le poids de corps n’est pas inclus. Les charges restent ajustables.")}</p>
+      <p className="force-help">{t("Pour les dips et tractions, le pourcentage RPE s’applique au poids du corps et au lest réunis. Le lest prévu est arrondi au pas de charge, avec un minimum de 0 kg. Ce calcul reste une estimation.")}</p>
       <div className="force-buttons"><button type="submit" className="btn btn-primary" disabled={saving || !name.trim()}>{saving ? t("Enregistrement…") : t("Générer et enregistrer le bloc")}</button>
         {selected && <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setCreating(false)}>{t("Annuler")}</button>}</div>
     </form> : block && exercise && <>
@@ -122,6 +152,11 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
         {ex.name}<small>{t("1RM visé")} {n(ex.target)} kg</small>
       </button>)}</div>
       <div className="force-exercise-heading"><h3>{exercise.name}</h3><span>{exercise.weighted ? t("Lest ajouté") : t("Charge totale")} {t("· pas de")} {n(exercise.step)} kg</span></div>
+      {exercise.weighted && block.bodyWeight === undefined && <p className="force-error" role="status">{t("Ce bloc utilise encore l’ancien calcul. Renseigne ton poids du corps puis recalcule les charges.")}</p>}
+      <StrengthLoadEditor key={`${selected?.id}-${exercise.id}`} exercise={exercise} bodyWeight={block.bodyWeight} saving={saving} onApply={(target, bodyWeight) => {
+        setBlock(previous => previous && updateStrengthLoads(previous, exercise.id, target, bodyWeight));
+        setDirty(true); setMessage('');
+      }} />
       <fieldset className="force-editor" disabled={saving}>
         <div className="force-week-tabs" aria-label={t("Semaine du bloc")}>{WEEK_RPES.map((_, index) => <button type="button" key={index} aria-pressed={activeWeek === index + 1} onClick={() => setActiveWeek(index + 1)}>{t("Sem.")} {index + 1}</button>)}</div>
         <div className="force-weeks">{WEEK_RPES.map((rpe, index) => <section className="force-week" data-active={activeWeek === index + 1} key={rpe}>
@@ -135,7 +170,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
                 event.target.value = String(row.weight);
               }
             }} /></label>
-            {row.weight !== calculateWeight(exercise.target, row.reps, row.rpe, exercise.step) && <button className="force-link" onClick={() => updatePrescription(row.id, { weight: calculateWeight(exercise.target, row.reps, row.rpe, exercise.step) })}>{t("Rétablir le calcul RPE")}</button>}
+            {row.weight !== calculateWeight(exercise.target, row.reps, row.rpe, exercise.step, exercise.weighted ? block.bodyWeight ?? 0 : 0) && <button className="force-link" onClick={() => updatePrescription(row.id, { weight: calculateWeight(exercise.target, row.reps, row.rpe, exercise.step, exercise.weighted ? block.bodyWeight ?? 0 : 0) })}>{t("Rétablir le calcul RPE")}</button>}
             {row.performances.map((perf, perfIndex) => <div className="force-result" key={perfIndex}>
               <strong>{n(perf.weight)} kg × {perf.reps} · RPE {n(perf.rpe)}</strong>
               <small>{new Date(perf.date).toLocaleDateString(locale())}{perf.note && ` · ${perf.note}`}</small>
@@ -147,7 +182,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
           </div>)}
         </section>)}</div>
       </fieldset>
-      <div className="force-save"><span>{dirty ? t("Modifications à enregistrer") : t("Bloc enregistré")}<small>{t("La date des performances est ajoutée automatiquement.")}</small></span><button className="btn btn-primary" disabled={!dirty || saving} onClick={() => void persist(block, selected!.name, selected)}>{saving ? t("Enregistrement…") : t("Enregistrer le bloc")}</button></div>
+      {(dirty || saving) && <div className="force-save"><span>{t("Modifications à enregistrer")}<small>{t("La date des performances est ajoutée automatiquement.")}</small></span><button className="btn btn-primary" disabled={saving} onClick={() => void persist(block, selected!.name, selected)}>{saving ? t("Enregistrement…") : t("Enregistrer le bloc")}</button></div>}
       {dirty && <p className="force-help">{t("Enregistre le bloc avant de quitter cette page ou de changer de bloc.")}</p>}
     </>}
 

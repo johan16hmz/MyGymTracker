@@ -18,12 +18,14 @@ export const STRENGTH_EXERCISES = [
 export const WEEK_RPES = [7, 8, 8.5, 9];
 export const formatNumber = (value: number) => value.toLocaleString('fr-FR');
 
-export function calculateWeight(target: number, reps: number, rpe: number, step: number) {
+export function calculateWeight(target: number, reps: number, rpe: number, step: number, bodyWeight = 0) {
   const percentage = RPE_TABLE.find(row => row.rpe === rpe)?.percentages[reps - 1];
-  if (!Number.isFinite(target) || target <= 0 || !percentage || !Number.isFinite(step) || step <= 0) {
+  if (!Number.isFinite(target) || target <= 0 || !percentage || !Number.isFinite(step) || step <= 0 || !Number.isFinite(bodyWeight) || bodyWeight < 0) {
     throw new Error('Paramètres de calcul invalides.');
   }
-  return Math.round(target * percentage / 100 / step) * step;
+  // For weighted bodyweight exercises, the percentage applies to the total load.
+  // Only the external load is prescribed; it cannot be negative.
+  return Math.max(0, Math.round(((target + bodyWeight) * percentage / 100 - bodyWeight) / step) * step);
 }
 
 export interface StrengthPerformance {
@@ -51,20 +53,43 @@ export interface StrengthExercise {
 }
 export interface StrengthBlock {
   version: 1;
+  bodyWeight?: number;
   exercises: StrengthExercise[];
 }
 
-export function createStrengthBlock(targets: Record<string, number>): StrengthBlock {
+export function createStrengthBlock(targets: Record<string, number>, bodyWeight: number): StrengthBlock {
+  if (!Number.isFinite(bodyWeight) || bodyWeight <= 0) throw new Error('Poids du corps invalide.');
   return {
     version: 1,
+    bodyWeight,
     exercises: STRENGTH_EXERCISES.map(exercise => ({
       ...exercise,
       target: targets[exercise.id],
       prescriptions: WEEK_RPES.flatMap((rpe, index) => [5, 3].map(reps => ({
         id: crypto.randomUUID(), week: index + 1, reps, rpe,
-        weight: calculateWeight(targets[exercise.id], reps, rpe, exercise.step),
+        weight: calculateWeight(targets[exercise.id], reps, rpe, exercise.step, exercise.weighted ? bodyWeight : 0),
         performances: [],
       }))),
     })),
+  };
+}
+
+export function updateStrengthLoads(block: StrengthBlock, exerciseId: string, target: number, bodyWeight: number | undefined): StrengthBlock {
+  const bodyWeightChanged = bodyWeight !== undefined && bodyWeight !== block.bodyWeight;
+  return {
+    ...block,
+    bodyWeight: bodyWeight ?? block.bodyWeight,
+    exercises: block.exercises.map(exercise => {
+      if (exercise.id !== exerciseId && !(bodyWeightChanged && exercise.weighted)) return exercise;
+      const nextTarget = exercise.id === exerciseId ? target : exercise.target;
+      return {
+        ...exercise,
+        target: nextTarget,
+        prescriptions: exercise.prescriptions.map(row => ({
+          ...row,
+          weight: calculateWeight(nextTarget, row.reps, row.rpe, exercise.step, exercise.weighted ? (bodyWeight ?? block.bodyWeight ?? 0) : 0),
+        })),
+      };
+    }),
   };
 }

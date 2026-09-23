@@ -3,7 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Workout, Exercise } from '../src/types';
-import { calculateWeight, STRENGTH_EXERCISES, WEEK_RPES } from '../src/strength.js';
+import { createStrengthBlock } from '../src/strength.js';
 import type { StrengthBlock } from '../src/strength';
 
 export const runtime = 'nodejs';
@@ -241,13 +241,10 @@ function registerTools(server: McpServer, client: SupabaseClient, user: User) {
 
   server.registerTool('strength_create_block', {
     description: 'Générer et enregistrer un bloc Force de quatre semaines.',
-    inputSchema: { name: z.string().trim().min(1).max(100), targets: z.object({ pullup: z.number().positive(), bench: z.number().positive(), dips: z.number().positive(), squat: z.number().positive() }) },
-  }, async ({ name, targets }) => {
+    inputSchema: { name: z.string().trim().min(1).max(100), bodyWeight: z.number().positive(), targets: z.object({ pullup: z.number().positive(), bench: z.number().positive(), dips: z.number().positive(), squat: z.number().positive() }) },
+  }, async ({ name, bodyWeight, targets }) => {
     try {
-      const block: StrengthBlock = {
-        version: 1,
-        exercises: STRENGTH_EXERCISES.map(exercise => ({ ...exercise, target: targets[exercise.id], prescriptions: WEEK_RPES.flatMap((rpe, index) => [5, 3].map(reps => ({ id: newId(), week: index + 1, reps, rpe, weight: calculateWeight(targets[exercise.id], reps, rpe, exercise.step), performances: [] }))) })),
-      };
+      const block: StrengthBlock = createStrengthBlock(targets, bodyWeight);
       const payload = { name, date: new Date().toISOString().slice(0, 10), exercises: [{ id: newId(), name: 'Bloc force', sets: [], strengthBlock: block }], user_id: user.id, created_at: new Date().toISOString() };
       const { data, error } = await client.from('workouts').insert(payload).select('*').single();
       if (error) throw new Error(error.message);

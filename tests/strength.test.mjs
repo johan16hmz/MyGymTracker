@@ -8,7 +8,7 @@ globalThis.crypto ??= webcrypto;
 const { outputText } = ts.transpileModule(readFileSync(new URL('../src/strength.ts', import.meta.url), 'utf8'), {
   compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
 });
-const { calculateWeight, createStrengthBlock, RPE_TABLE } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const { calculateWeight, createStrengthBlock, updateStrengthLoads, RPE_TABLE } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
 test('tableau fourni : 8 RPE et 12 colonnes de répétitions', () => {
   assert.equal(RPE_TABLE.length, 8);
@@ -23,10 +23,13 @@ test('charges calculées depuis le tableau et arrondies au pas de chaque exercic
   assert.equal(calculateWeight(45, 5, 7, 1.25), 35);
   assert.equal(calculateWeight(37.5, 3, 9, 1.25), 33.75);
   assert.equal(calculateWeight(101.25, 1, 10, 2.5), 102.5);
+  assert.equal(calculateWeight(45, 5, 7, 1.25, 80), 18.75);
+  assert.equal(calculateWeight(10, 5, 7, 1.25, 80), 0);
 });
 test('bloc de 4 semaines : 32 objectifs indépendants, sans fausses performances', () => {
   const targets = { pullup: 45, bench: 100, dips: 37.5, squat: 120 };
-  const block = createStrengthBlock(targets);
+  const block = createStrengthBlock(targets, 80);
+  assert.equal(block.bodyWeight, 80);
   const rows = block.exercises.flatMap(ex => ex.prescriptions);
   assert.equal(rows.length, 32);
   assert.equal(new Set(rows.map(row => row.id)).size, 32);
@@ -35,12 +38,32 @@ test('bloc de 4 semaines : 32 objectifs indépendants, sans fausses performances
     assert.deepEqual(ex.prescriptions.map(row => row.reps), [5,3,5,3,5,3,5,3]);
     assert.ok(ex.prescriptions.every(row => row.weight % ex.step === 0 && row.performances.length === 0));
   }
-  const next = createStrengthBlock({ ...targets, bench: 110 });
+  const next = createStrengthBlock({ ...targets, bench: 110 }, 80);
   assert.equal(block.exercises[1].target, 100);
   assert.ok(next.exercises[1].prescriptions[0].weight > block.exercises[1].prescriptions[0].weight);
+});
+test('modifier un 1RM recalcule uniquement cet exercice et conserve les performances', () => {
+  const block = createStrengthBlock({ pullup: 45, bench: 100, dips: 37.5, squat: 120 }, 80);
+  const performance = { weight: 20, reps: 5, rpe: 8, note: '', date: '2026-09-23' };
+  block.exercises[0].prescriptions[0].performances.push(performance);
+  const updated = updateStrengthLoads(block, 'pullup', 50, undefined);
+  assert.equal(updated.exercises[0].target, 50);
+  assert.ok(updated.exercises[0].prescriptions[0].weight > block.exercises[0].prescriptions[0].weight);
+  assert.deepEqual(updated.exercises[0].prescriptions[0].performances, [performance]);
+  assert.equal(updated.exercises[1], block.exercises[1]);
+  assert.equal(updated.exercises[2], block.exercises[2]);
+});
+test('modifier le poids du corps recalcule dips et tractions', () => {
+  const block = createStrengthBlock({ pullup: 45, bench: 100, dips: 37.5, squat: 120 }, 80);
+  const updated = updateStrengthLoads(block, 'pullup', 45, 85);
+  assert.equal(updated.bodyWeight, 85);
+  assert.ok(updated.exercises[0].prescriptions[0].weight < block.exercises[0].prescriptions[0].weight);
+  assert.ok(updated.exercises[2].prescriptions[0].weight < block.exercises[2].prescriptions[0].weight);
+  assert.equal(updated.exercises[1], block.exercises[1]);
 });
 test('refus des objectifs et paramètres invalides', () => {
   for (const target of [0, -1, NaN, Infinity]) assert.throws(() => calculateWeight(target, 5, 7, 2.5));
   assert.throws(() => calculateWeight(100, 13, 7, 2.5));
   assert.throws(() => calculateWeight(100, 5, 4, 2.5));
+  assert.throws(() => createStrengthBlock({ pullup: 45, bench: 100, dips: 37.5, squat: 120 }, 0));
 });

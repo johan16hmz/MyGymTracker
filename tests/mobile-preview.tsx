@@ -16,7 +16,7 @@ const noop = () => {};
 const workout = { id: 'fixture', name: 'Séance test avec un nom particulièrement long', date: '2026-09-08', exercises: [
   { id: 'exercise', name: 'Développé incliné machine prise large', sets: [{ id: 'set', weight: 77.5, reps: 8 }] },
 ] };
-const force = { ...workout, exercises: [{ id: 'force', name: 'Bloc force', sets: [], strengthBlock: createStrengthBlock({ pullup: 45, bench: 100, dips: 37.5, squat: 120 }) }] };
+const force = { ...workout, exercises: [{ id: 'force', name: 'Bloc force', sets: [], strengthBlock: createStrengthBlock({ pullup: 45, bench: 100, dips: 37.5, squat: 120 }, 80) }] };
 const view = new URLSearchParams(location.search).get('view');
 const screens = {
   list: <WorkoutList workouts={[workout]} onNew={noop} onView={noop} onEdit={noop} onDelete={noop} />,

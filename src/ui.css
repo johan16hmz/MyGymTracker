@@ -208,6 +208,10 @@ small { font-size: .78rem; }
 .force-targets label { border: 1px solid var(--border); padding: 20px; border-radius: 14px; background: var(--bg); }
 .force-targets strong { font-size: 1.1rem; }.force-targets label > span { font-size: .65rem; color: var(--text-muted); }
 .force-targets input { font-size: 1.9rem; font-weight: 600; letter-spacing: -.06em; background: var(--surface); padding: 10px; margin: 8px 0; }
+.force-bodyweight { max-width: 260px; margin-top: 18px; }
+.force-load-editor { display: flex; align-items: end; flex-wrap: wrap; gap: 12px 18px; margin-bottom: 24px; padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.force-load-editor label { flex: 1 1 170px; max-width: 250px; }
+.force-load-editor > small { flex-basis: 100%; line-height: 1.5; }
 .force-help { font-size: .8rem; color: var(--text-muted); margin-bottom: 18px; line-height: 1.8; }
 .force-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 .force-toolbar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
@@ -231,7 +235,7 @@ small { font-size: .78rem; }
 .force-result { padding: 12px; margin: 14px 0; border-left: 3px solid #8aaa64; background: var(--bg); border-radius: 4px; overflow-wrap: anywhere; }
 .force-result strong { font-size: .85rem; }.force-result small { margin: 4px 0; }
 .force-link { display: inline-block; background: transparent; border: 0; padding: 8px 0; color: var(--text-muted); font-size: .75rem; text-decoration: underline; text-underline-offset: 3px; }
-.force-save { position: sticky; bottom: 14px; z-index: 5; margin-top: 24px; background: var(--surface); border: 1px solid #9bb278; border-radius: 14px; padding: 18px 22px; box-shadow: 0 8px 32px #00000012; }
+.force-save { margin-top: 24px; background: var(--surface); border: 1px solid #9bb278; border-radius: 14px; padding: 18px 22px; box-shadow: 0 8px 32px #00000012; }
 .force-save > span { font-size: .85rem; font-weight: 600; }.force-save small { margin-top: 3px; }
 .force-error, .error-message, [role='alert'] { color: var(--danger); background: #cd6f5810; border: 1px solid #cd6f5838; border-radius: 10px; padding: 14px; margin-bottom: 18px; font-size: .85rem; }
 .force-success { color: var(--success); background: #6f985812; border: 1px solid #6f985838; border-radius: 10px; padding: 14px; margin-bottom: 18px; font-size: .85rem; }

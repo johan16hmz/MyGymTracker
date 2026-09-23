@@ -78,6 +78,7 @@ type StrengthExercise = {
 
 type StrengthBlock = {
   version: 1;
+  bodyWeight?: number;
   exercises: StrengthExercise[];
 };
 
@@ -177,21 +178,22 @@ const strengthExercises = [
   { id: 'squat', name: 'Squat', target: 120, step: 2.5, weighted: false },
 ] as const;
 
-function calculateWeight(target: number, reps: number, rpe: number, step: number) {
+function calculateWeight(target: number, reps: number, rpe: number, step: number, bodyWeight = 0) {
   const percentage = RPE_TABLE.find(row => row.rpe === rpe)?.percentages[reps - 1];
-  if (!percentage || target <= 0 || step <= 0) throw new Error('Paramètres de calcul invalides.');
-  return Math.round(target * percentage / 100 / step) * step;
+  if (!percentage || target <= 0 || step <= 0 || bodyWeight < 0) throw new Error('Paramètres de calcul invalides.');
+  return Math.max(0, Math.round(((target + bodyWeight) * percentage / 100 - bodyWeight) / step) * step);
 }
 
-function createStrengthBlock(targets: Record<string, number>): StrengthBlock {
+function createStrengthBlock(targets: Record<string, number>, bodyWeight: number): StrengthBlock {
   return {
     version: 1,
+    bodyWeight,
     exercises: strengthExercises.map(exercise => ({
       ...exercise,
       target: targets[exercise.id],
       prescriptions: [7, 8, 8.5, 9].flatMap((rpe, index) => [5, 3].map(reps => ({
         id: id(), week: index + 1, reps, rpe,
-        weight: calculateWeight(targets[exercise.id], reps, rpe, exercise.step),
+        weight: calculateWeight(targets[exercise.id], reps, rpe, exercise.step, exercise.weighted ? bodyWeight : 0),
         performances: [],
       }))),
     })),
@@ -408,12 +410,13 @@ mcp.registerTool('strength_create_block', {
   description: 'Générer et enregistrer un bloc Force de 4 semaines pour tractions, bench, dips et squat.',
   inputSchema: {
     name: z.string().trim().min(1).max(100),
+    bodyWeight: z.number().positive(),
     targets: z.object({ pullup: z.number().positive(), bench: z.number().positive(), dips: z.number().positive(), squat: z.number().positive() }),
   },
-}, async ({ name, targets }) => {
+}, async ({ name, bodyWeight, targets }) => {
   try {
     const { client, userId } = await requireAuth();
-    const block = createStrengthBlock(targets);
+    const block = createStrengthBlock(targets, bodyWeight);
     const payload = { name, date: new Date().toISOString().slice(0, 10), exercises: [{ id: id(), name: 'Bloc force', sets: [], strengthBlock: block }], user_id: userId, created_at: new Date().toISOString() };
     const { data, error } = await client.from('workouts').insert(payload).select('*').single();
     if (error) throw new Error(error.message);
