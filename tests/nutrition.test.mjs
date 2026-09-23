@@ -12,6 +12,7 @@ async function load(source) {
 
 const { estimateCalories, foodTotals, sumEntries } = await load('../src/nutrition.ts');
 const { normalizeOpenFoodFacts } = await load('../src/nutritionFood.ts');
+const { foodCodeFromScan } = await load('../src/nutritionScan.ts');
 
 test('l’estimation suit Mifflin–St Jeor et le sens de l’objectif', () => {
   const base = { goal: 'maintain', targetKg: 80, age: 30, heightCm: 180, weightKg: 80, activity: 'moderate', equationSex: 'male' };
@@ -39,4 +40,14 @@ test('Open Food Facts signale les macros manquantes au lieu de les inventer', ()
   assert.equal(food.protein100, 9);
   assert.equal(food.fat100, null);
   assert.equal(normalizeOpenFoodFacts({ status: 0 }), null);
+});
+
+test('le scanner extrait un code produit des EAN, URL Open Food Facts et liens GS1', () => {
+  assert.equal(foodCodeFromScan(' 3017620422003 '), '3017620422003');
+  assert.equal(foodCodeFromScan('https://fr.openfoodfacts.org/produit/3017620422003/test'), '3017620422003');
+  assert.equal(foodCodeFromScan('https://id.example.com/01/03017620422003/10/L123'), '03017620422003');
+  assert.equal(foodCodeFromScan('(01)03017620422003(10)L123'), '03017620422003');
+  assert.equal(foodCodeFromScan('https://example.com/food?gtin=3017620422003'), '3017620422003');
+  assert.equal(foodCodeFromScan('https://example.com/promo/1234567890123'), null);
+  assert.equal(foodCodeFromScan('https://example.com/promo'), null);
 });
