@@ -202,6 +202,21 @@ small { font-size: .78rem; }
 .force-heading p:not(.force-eyebrow), .force-panel p, .force-toolbar > span, .force-exercise-heading > span { color: var(--text-muted); font-size: .85rem; }
 .force-panel { padding: 28px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-bottom: 24px; }
 .force-panel h3, .force-panel p { margin-bottom: 16px; }
+.force-configuration { border: 0; padding: 0; min-width: 0; }
+.force-duration { max-width: 240px; margin: 20px 0 14px; }
+.force-rpe-planner { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.force-exercise-picker { display: flex; flex-wrap: wrap; gap: 10px; border: 0; padding: 0; min-width: 0; margin: 20px 0; }
+.force-exercise-picker legend { font-size: .85rem; font-weight: 600; margin-bottom: 12px; }
+.force-page .force-exercise-picker label { flex-direction: row; align-items: center; padding: 12px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.force-exercise-picker label.selected { border-color: #8da862; background: var(--surface-hover); }
+.force-exercise-picker input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: #789846; }
+.force-preview { margin: 22px 0; border: 1px solid var(--border); border-radius: 12px; }
+.force-preview table { border-collapse: collapse; width: 100%; font-size: .8rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.force-preview caption { text-align: left; padding: 14px; font-weight: 600; }
+.force-preview th, .force-preview td { padding: 12px 16px; border-top: 1px solid var(--border); text-align: center; }
+.force-preview th:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+.force-preview thead { background: var(--surface-hover); }
+.force-preview small { margin-top: 5px; }
 .force-page label { display: flex; flex-direction: column; gap: 8px; font-size: .78rem; font-weight: 550; }
 .force-page small { display: block; font-size: .7rem; color: var(--text-muted); font-weight: 400; }
 .force-targets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 24px 0; }

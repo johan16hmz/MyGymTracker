@@ -23,6 +23,19 @@ export function setWeightUnit(next: WeightUnit) { weightUnit = next; try { local
 export function useWeightUnit() { return useSyncExternalStore(listener => { unitListeners.add(listener); return () => unitListeners.delete(listener); }, () => weightUnit); }
 export function formatWeight(value: number) { const converted = weightUnit === 'lb' ? value * 2.2046226218 : value; return `${Math.round(converted * 10) / 10} ${weightUnit}`; }
 export const english: Record<string, string> = {
+  "Ton cycle. Tes exercices. Tes performances.": "Your cycle. Your exercises. Your performance.",
+  "Préparer mon bloc": "Build my block",
+  "Choisis la durée, le RPE de chaque semaine et tes exercices. Chaque semaine comprend du ×5 et du ×3.": "Choose the duration, each week's RPE and your exercises. Each week includes ×5 and ×3 work.",
+  "Nombre de semaines": "Number of weeks", "Exercices du bloc": "Block exercises",
+  "Tractions": "Pull-ups", "Soulevé de terre": "Deadlift", "Muscle-up": "Muscle-up",
+  "Choisis au moins un exercice valide.": "Choose at least one valid exercise.",
+  "Choisis de 1 à 24 semaines et un RPE valide pour chaque semaine.": "Choose 1 to 24 weeks and a valid RPE for each week.",
+  "Poids du corps invalide.": "Invalid body weight.", "Paramètres de calcul invalides.": "Invalid calculation parameters.",
+  "Utilisé pour calculer le lest des dips, tractions et muscle-ups.": "Used to calculate added weight for dips, pull-ups and muscle-ups.",
+  "Pour les dips, tractions et muscle-ups, le calcul porte sur le poids du corps + le lest. Les charges affichées correspondent uniquement au lest ajouté (minimum 0 kg).": "For dips, pull-ups and muscle-ups, the calculation uses body weight plus added weight. The displayed weights are added weight only (minimum 0 kg).",
+  "Si deux semaines consécutives donnent la même charge en ×3 ou en ×5, l’arrondi est ajusté d’un pas (+ ou −). Les charges restent modifiables.": "If consecutive weeks produce the same ×3 or ×5 weight, rounding is adjusted by one increment (+ or −). You can still edit the weights.",
+  "Aperçu des charges (kg)": "Weight preview (kg)",
+  "Le poids du corps est commun aux dips, tractions et muscle-ups. Les charges prévues sont recalculées ; les performances enregistrées restent intactes.": "Body weight is shared by dips, pull-ups and muscle-ups. Planned weights are recalculated; logged performances are kept.",
   "Chargement de tes entraînements…":"Loading your training…",
   "Aller au contenu":"Skip to content", "TON ESPACE":"YOUR SPACE", "La régularité fait la différence.":"Consistency makes the difference.", "Une séance à la fois.":"One workout at a time.", "Mon compte":"My account", "Ton espace personnel":"Your personal space",
   "CONSTRUIS TA PROGRESSION":"BUILD YOUR PROGRESS", "Chaque séance.":"Every workout.", "Un pas de plus.":"One step further.", "Tes entraînements, tes objectifs, ton évolution. Tout commence ici.":"Your workouts, your goals, your progress. It all starts here.", "TON ESPACE PERSONNEL":"YOUR PERSONAL SPACE", "Commence ton parcours.":"Start your journey.", "Prêt pour la suite ?":"Ready for what's next?", "Crée ton compte et prépare ta première séance.":"Create your account and plan your first workout.", "Connecte-toi pour retrouver tes entraînements.":"Log in to pick up your training.",
