@@ -125,7 +125,7 @@ function App() {
     <div className="app">
       <a className="skip-link" href="#main-content">{t('Aller au contenu')}</a>
       <header className="app-header">
-        <button className="brand" onClick={handleBackToList}><span className="brand-mark"><Icon name="logo" /></span><span>MyGym<span className="brand-light">Tracker</span><small>TRAINING JOURNAL</small></span></button>
+        <button className="brand" onClick={handleBackToList}><span className="brand-mark"><img src="/brand-icon.svg" alt="" /></span><span>MyGym<span className="brand-light">Tracker</span><small>TRAINING JOURNAL</small></span></button>
         <p className="nav-caption">{t('TON ESPACE')}</p>
         <nav className="app-sections" aria-label="Sections">
           <button className={`nav-item ${view !== 'strength' && view !== 'nutrition' ? 'active' : ''}`} aria-current={view !== 'strength' && view !== 'nutrition' ? 'page' : undefined} onClick={handleBackToList}><Icon name="workout" />{t("Séances")}<span className="nav-dot" /></button>
@@ -178,6 +178,7 @@ function App() {
           />
         )}
       </main>
+      <footer className="app-footer">© {new Date().getFullYear()} MyGymTracker · {t('Tous droits réservés.')}</footer>
     </div>
   );
 }

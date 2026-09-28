@@ -1,6 +1,5 @@
-type IconName = 'logo' | 'workout' | 'strength' | 'nutrition' | 'plus' | 'arrow' | 'edit' | 'trash' | 'settings' | 'logout' | 'check' | 'search' | 'calendar';
+type IconName = 'workout' | 'strength' | 'nutrition' | 'plus' | 'arrow' | 'edit' | 'trash' | 'settings' | 'logout' | 'check' | 'search' | 'calendar';
 const paths: Record<IconName, string> = {
-  logo: 'M4 16V8h4v8M10 19V5h4v14M16 16V8h4v8M2 12h20',
   workout: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   strength: 'm3 17 6-6 4 3 8-10M15 4h6v6',
   nutrition: 'M4 3v5a3 3 0 0 0 6 0V3M7 3v18M17 3v10h3M20 3v18M17 3h3',
