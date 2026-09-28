@@ -2,7 +2,7 @@ import { t, useLanguage, locale, useWeightUnit } from '../i18n';
 import type { WeightUnit } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
 import type { Workout } from '../types';
-import { createStrengthBlock, DEFAULT_STRENGTH_EXERCISES, getStrengthWeeks, MAX_BLOCK_WEEKS, planStrengthLoads, RPE_TABLE, STRENGTH_EXERCISES, updateStrengthLoads, WEEK_RPES } from '../strength';
+import { createStrengthBlock, DEFAULT_STRENGTH_EXERCISES, getCurrentStrengthBlockIndex, getStrengthWeeks, MAX_BLOCK_WEEKS, nextCurrentStrengthRank, planStrengthLoads, RPE_TABLE, STRENGTH_EXERCISES, updateStrengthLoads, WEEK_RPES } from '../strength';
 import type { StrengthBlock, StrengthExercise, StrengthExerciseId, StrengthPrescription, StrengthPerformance } from '../strength';
 import { getStrengthBlock, saveStrengthBlock } from '../strengthService';
 import { convertWeightInput, toDisplayWeight, toStoredWeight } from '../weightUnits';
@@ -104,8 +104,13 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   useLanguage();
   const weightUnit = useWeightUnit();
   const records = workouts.filter(workout => getStrengthBlock(workout));
-  const [selected, setSelected] = useState<Workout | undefined>(records[0]);
-  const [block, setBlock] = useState<StrengthBlock | undefined>(() => records[0] && getStrengthBlock(records[0]));
+  const recordBlocks = records.map(record => getStrengthBlock(record)!);
+  const currentIndex = getCurrentStrengthBlockIndex(recordBlocks);
+  const currentRecord = records[currentIndex];
+  const currentRank = recordBlocks[currentIndex]?.currentRank ?? 0;
+  const hasCurrentChoice = Number.isSafeInteger(currentRank) && currentRank > 0;
+  const [selected, setSelected] = useState<Workout | undefined>(currentRecord);
+  const [block, setBlock] = useState<StrengthBlock | undefined>(() => currentRecord && getStrengthBlock(currentRecord));
   const [creating, setCreating] = useState(!records.length);
   const [exerciseId, setExerciseId] = useState('pullup');
   const [activeWeek, setActiveWeek] = useState(1);
@@ -142,12 +147,12 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
     return () => { window.removeEventListener('beforeunload', warn); onPendingChange(false); };
   }, [dirty, saving, onPendingChange]);
 
-  const persist = async (next: StrengthBlock, title: string, existing?: Workout) => {
+  const persist = async (next: StrengthBlock, title: string, existing?: Workout, successMessage = t("Bloc enregistré dans ton compte.")) => {
     setSaving(true); setError(''); setMessage('');
     try {
       const saved = await saveStrengthBlock(userId, title, next, existing);
       onSaved(saved); setSelected(saved); setBlock(next); setCreating(false); setDirty(false);
-      setMessage(t("Bloc enregistré dans ton compte."));
+      setMessage(successMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Enregistrement impossible. Réessaie."));
     } finally { setSaving(false); }
@@ -179,7 +184,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
       try {
         const next = createStrengthBlock(Object.fromEntries(Object.entries(targets).map(([key, value]) => [key, toStoredWeight(Number(value), entryUnit)])), toStoredWeight(Number(bodyWeightInput), entryUnit), { exerciseIds, weekRpes });
         setActiveWeek(1); setExerciseId(next.exercises[0].id);
-        void persist(next, name.trim());
+        void persist(records.length ? next : { ...next, currentRank: 1 }, name.trim());
       } catch (err) { setError(err instanceof Error ? t(err.message) : t('Vérifie les informations saisies.')); }
     }}>
       <h3>{t("Préparer mon bloc")}</h3>
@@ -212,8 +217,13 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
         <label>{t("Mes blocs")}<select value={selected?.id ?? ''} disabled={dirty || saving} onChange={event => {
           const record = records.find(item => item.id === event.target.value);
           setSelected(record); setBlock(record && getStrengthBlock(record)); setActiveWeek(1); setMessage(''); setError('');
-        }}>{records.map(record => <option key={record.id} value={record.id}>{record.name}</option>)}</select></label>
-        <span>{completed} / {block.exercises.reduce((sum, ex) => sum + ex.prescriptions.length, 0)} {t("objectifs renseignés")}</span>
+        }}>{records.map(record => <option key={record.id} value={record.id}>{record.name}{hasCurrentChoice && record.id === currentRecord?.id ? ` · ${t("Bloc actuel")}` : ''}</option>)}</select></label>
+        <div className="force-toolbar-actions">
+          <span>{completed} / {block.exercises.reduce((sum, ex) => sum + ex.prescriptions.length, 0)} {t("objectifs renseignés")}</span>
+          <button type="button" className="btn btn-secondary btn-small" disabled={dirty || saving || (hasCurrentChoice && selected?.id === currentRecord?.id)} onClick={() => {
+            if (selected) void persist({ ...block, currentRank: nextCurrentStrengthRank(recordBlocks) }, selected.name, selected, t("Ce bloc s’ouvrira par défaut."));
+          }}>{hasCurrentChoice && selected?.id === currentRecord?.id ? t("Bloc actuel") : t("Définir comme bloc actuel")}</button>
+        </div>
       </div>
       <details key={selected?.id} className="force-panel force-block-summary" open>
         <summary>{t("Récapitulatif du bloc")}</summary>

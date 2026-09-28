@@ -8,7 +8,24 @@ globalThis.crypto ??= webcrypto;
 const { outputText } = ts.transpileModule(readFileSync(new URL('../src/strength.ts', import.meta.url), 'utf8'), {
   compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
 });
-const { calculateWeight, createStrengthBlock, updateStrengthLoads, getStrengthWeeks, RPE_TABLE } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const { calculateWeight, createStrengthBlock, getCurrentStrengthBlockIndex, nextCurrentStrengthRank, updateStrengthLoads, getStrengthWeeks, RPE_TABLE } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+
+test('le bloc actuel enregistré est préféré au premier bloc et peut être changé', () => {
+  const blocks = [{ version: 1, exercises: [] }, { version: 1, currentRank: 1, exercises: [] }, { version: 1, exercises: [] }];
+  assert.equal(getCurrentStrengthBlockIndex([]), -1);
+  assert.equal(getCurrentStrengthBlockIndex(blocks), 1);
+  assert.equal(nextCurrentStrengthRank(blocks), 2);
+  blocks[2] = { ...blocks[2], currentRank: nextCurrentStrengthRank(blocks) };
+  assert.equal(getCurrentStrengthBlockIndex(blocks), 2);
+  assert.equal(nextCurrentStrengthRank(blocks), 3);
+});
+
+test('les anciens blocs sans choix explicite restent accessibles', () => {
+  const blocks = [{ version: 1, exercises: [] }, { version: 1, exercises: [] }];
+  assert.equal(getCurrentStrengthBlockIndex(blocks), 0);
+  assert.equal(nextCurrentStrengthRank(blocks), 1);
+  assert.equal(getCurrentStrengthBlockIndex([{ version: 1, currentRank: Number.NaN, exercises: [] }, blocks[1]]), 0);
+});
 
 test('tableau de RPE 6 à 10 avec 12 colonnes de répétitions', () => {
   assert.equal(RPE_TABLE.length, 9);

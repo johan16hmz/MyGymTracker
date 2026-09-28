@@ -235,6 +235,8 @@ small { font-size: .78rem; }
 .force-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 .force-toolbar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
 .force-toolbar label { flex: 1; max-width: 360px; }
+.force-toolbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.force-toolbar-actions > span { color: var(--text-muted); font-size: .85rem; }
 .force-exercise-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; }
 .force-exercise-tabs button { color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; font-weight: 650; text-align: left; }
 .force-exercise-tabs button small { margin-top: 6px; }

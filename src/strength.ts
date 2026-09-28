@@ -62,7 +62,21 @@ export interface StrengthBlock {
   version: 1;
   bodyWeight?: number;
   weekRpes?: number[];
+  currentRank?: number;
   exercises: StrengthExercise[];
+}
+
+function currentRank(block: StrengthBlock): number {
+  return Number.isSafeInteger(block.currentRank) && (block.currentRank ?? 0) > 0 ? block.currentRank! : 0;
+}
+
+export function getCurrentStrengthBlockIndex(blocks: StrengthBlock[]): number {
+  if (!blocks.length) return -1;
+  return blocks.reduce((best, block, index) => currentRank(block) > currentRank(blocks[best]) ? index : best, 0);
+}
+
+export function nextCurrentStrengthRank(blocks: StrengthBlock[]): number {
+  return Math.max(0, ...blocks.map(currentRank)) + 1;
 }
 
 // Use saved prescriptions for legacy blocks and for display, never a fixed four-week calendar.
