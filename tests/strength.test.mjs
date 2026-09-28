@@ -10,11 +10,13 @@ const { outputText } = ts.transpileModule(readFileSync(new URL('../src/strength.
 });
 const { calculateWeight, createStrengthBlock, updateStrengthLoads, getStrengthWeeks, RPE_TABLE } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
-test('tableau fourni : 8 RPE et 12 colonnes de répétitions', () => {
-  assert.equal(RPE_TABLE.length, 8);
+test('tableau de RPE 6 à 10 avec 12 colonnes de répétitions', () => {
+  assert.equal(RPE_TABLE.length, 9);
   assert.ok(RPE_TABLE.every(row => row.percentages.length === 12));
   assert.equal(RPE_TABLE.find(row => row.rpe === 7).percentages[4], 78.6);
   assert.equal(RPE_TABLE.find(row => row.rpe === 9).percentages[2], 89.2);
+  assert.deepEqual(RPE_TABLE.find(row => row.rpe === 6).percentages.slice(0, 11), RPE_TABLE.find(row => row.rpe === 7).percentages.slice(1));
+  assert.equal(RPE_TABLE.find(row => row.rpe === 6).percentages[11], 57.2);
 });
 test('charges calculées depuis le tableau et arrondies au pas de chaque exercice', () => {
   assert.equal(calculateWeight(100, 5, 7, 2.5), 77.5);
@@ -25,6 +27,7 @@ test('charges calculées depuis le tableau et arrondies au pas de chaque exercic
   assert.equal(calculateWeight(101.25, 1, 10, 2.5), 102.5);
   assert.equal(calculateWeight(45, 5, 7, 1.25, 80), 18.75);
   assert.equal(calculateWeight(10, 5, 7, 1.25, 80), 0);
+  assert.equal(calculateWeight(100, 5, 6, 2.5), 75);
 });
 test('bloc de 4 semaines : 32 objectifs indépendants, sans fausses performances', () => {
   const targets = { pullup: 45, bench: 100, dips: 37.5, squat: 120 };
@@ -80,7 +83,7 @@ function assertDistinctWeeks(block) {
 }
 
 test('durée, exercices et RPE personnalisés, y compris un cycle de décharge', () => {
-  const weekRpes = [7, 8, 9, 6.5, 8, 9.5];
+  const weekRpes = [7, 8, 9, 6, 8, 9.5];
   const block = createStrengthBlock({ deadlift: 140, muscleup: 25 }, 75, { exerciseIds: ['deadlift', 'muscleup'], weekRpes });
   assert.deepEqual(block.exercises.map(ex => ex.id), ['deadlift', 'muscleup']);
   assert.deepEqual(getStrengthWeeks(block), [1, 2, 3, 4, 5, 6]);

@@ -7,6 +7,8 @@ export const RPE_TABLE = [
   { rpe: 7.5, percentages: [90.7,87.8,85,82.4,79.9,77.4,75.1,72.3,69.4,66.7,64,61.3] },
   { rpe: 7, percentages: [89.2,86.3,83.7,81.1,78.6,76.2,73.9,70.7,68,65.3,62.6,59.9] },
   { rpe: 6.5, percentages: [87.8,85,82.4,79.9,77.4,75.1,72.3,69.4,66.7,64,61.3,58.6] },
+  // RPE 6 follows the existing chart's one-repetition shift; 12 reps extrapolates the final step.
+  { rpe: 6, percentages: [86.3,83.7,81.1,78.6,76.2,73.9,70.7,68,65.3,62.6,59.9,57.2] },
 ];
 
 export const STRENGTH_EXERCISES = [

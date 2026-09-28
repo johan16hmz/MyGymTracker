@@ -273,11 +273,11 @@ function registerTools(server: McpServer, client: SupabaseClient, user: User) {
   });
 
   server.registerTool('strength_create_block', {
-    description: 'Générer un bloc Force personnalisé (1 à 24 semaines, RPE 6.5 à 10 par pas de 0.5, exercices au choix). Par défaut : 4 semaines, tractions, bench, dips et squat. Les charges ×3 et ×5 diffèrent entre semaines consécutives. Pour les exercices au poids du corps, targets désigne le lest et bodyWeight est requis.',
+    description: 'Générer un bloc Force personnalisé (1 à 24 semaines, RPE 6 à 10 par pas de 0.5, exercices au choix). Par défaut : 4 semaines, tractions, bench, dips et squat. Les charges ×3 et ×5 diffèrent entre semaines consécutives. Pour les exercices au poids du corps, targets désigne le lest et bodyWeight est requis.',
     inputSchema: {
       name: z.string().trim().min(1).max(100), bodyWeight: z.number().positive().optional(),
       targets: z.object({ pullup: z.number().nonnegative().optional(), bench: z.number().positive().optional(), dips: z.number().nonnegative().optional(), squat: z.number().positive().optional(), deadlift: z.number().positive().optional(), muscleup: z.number().nonnegative().optional() }),
-      weekRpes: z.array(z.number().min(6.5).max(10).multipleOf(0.5)).min(1).max(24).optional(),
+      weekRpes: z.array(z.number().min(6).max(10).multipleOf(0.5)).min(1).max(24).optional(),
       exerciseIds: z.array(z.enum(['pullup', 'bench', 'dips', 'squat', 'deadlift', 'muscleup'])).min(1).max(6).optional(),
     },
   }, async ({ name, bodyWeight, targets, weekRpes, exerciseIds }) => {
