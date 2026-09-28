@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MyGymTracker — M géométrique">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#263b2c"/><stop offset="1" stop-color="#14211a"/></linearGradient>
+    <linearGradient id="mark" x2="1" y2="1"><stop stop-color="#e5ff9e"/><stop offset="1" stop-color="#c5e961"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path fill="url(#mark)" d="M110 352V160h46l100 110 100-110h46v192h-46V227L256 337 156 227v125z"/>
+</svg>
