@@ -13,6 +13,7 @@ interface Props {
 }
 
 const n = (value: number) => value.toLocaleString(locale());
+const emptyTargets = (): Record<string, string> => Object.fromEntries(STRENGTH_EXERCISES.map(ex => [ex.id, '0']));
 
 function PerformanceForm({ prescription, step, onAdd }: {
   prescription: StrengthPrescription;
@@ -75,7 +76,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   const [creating, setCreating] = useState(!records.length);
   const [exerciseId, setExerciseId] = useState('pullup');
   const [activeWeek, setActiveWeek] = useState(1);
-  const [targets, setTargets] = useState<Record<string, string>>(Object.fromEntries(STRENGTH_EXERCISES.map(ex => [ex.id, String(ex.target)])));
+  const [targets, setTargets] = useState<Record<string, string>>(emptyTargets);
   const [exerciseIds, setExerciseIds] = useState<StrengthExerciseId[]>([...DEFAULT_STRENGTH_EXERCISES]);
   const [weekRpes, setWeekRpes] = useState<number[]>([...WEEK_RPES]);
   const [bodyWeightInput, setBodyWeightInput] = useState('');
@@ -127,7 +128,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
     <div className="force-heading">
       <div><p className="force-eyebrow">POWERLIFTING & STREETLIFTING</p><h2>{t("Force")}</h2><p>{t("Ton cycle. Tes exercices. Tes performances.")}</p></div>
       {!creating && <button className="btn btn-primary" disabled={dirty || saving} onClick={() => {
-        setName(`${t('Bloc force')} ${records.length + 1}`); setCreating(true); setMessage(''); setError('');
+        setName(`${t('Bloc force')} ${records.length + 1}`); setTargets(emptyTargets()); setCreating(true); setMessage(''); setError('');
       }}>{t("+ Nouveau bloc")}</button>}
     </div>
     {error && <p className="force-error" role="alert">{error}</p>}
