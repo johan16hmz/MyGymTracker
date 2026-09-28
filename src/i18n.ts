@@ -23,6 +23,14 @@ export function setWeightUnit(next: WeightUnit) { weightUnit = next; try { local
 export function useWeightUnit() { return useSyncExternalStore(listener => { unitListeners.add(listener); return () => unitListeners.delete(listener); }, () => weightUnit); }
 export function formatWeight(value: number) { const converted = weightUnit === 'lb' ? value * 2.2046226218 : value; return `${Math.round(converted * 10) / 10} ${weightUnit}`; }
 export const english: Record<string, string> = {
+  'Brouillon sauvegardé sur cet appareil.': 'Draft saved on this device.',
+  'Hors ligne : tu peux continuer à saisir.': 'Offline: you can keep editing.',
+  'Sauvegarde locale indisponible. Garde cette page ouverte jusqu’à l’enregistrement.': 'Local saving is unavailable. Keep this page open until you save.',
+  'Enregistrement impossible. Tes saisies sont conservées ici. Vérifie ta connexion puis réessaie.': 'Unable to save. Your entries are still here. Check your connection and try again.',
+  'Brouillons de séances': 'Workout drafts',
+  'Tes saisies sont conservées sur cet appareil. Reprends-les pour les enregistrer dans ton compte.': 'Your entries are kept on this device. Resume them to save to your account.',
+  'Reprendre': 'Resume',
+  'Supprimer ce brouillon ? La séance déjà enregistrée ne sera pas supprimée.': 'Delete this draft? Your saved workout will not be deleted.',
   "Bloc actuel": "Current block", "Définir comme bloc actuel": "Set as current block", "Ce bloc s’ouvrira par défaut.": "This block will open by default.",
   "Récapitulatif du bloc": "Block overview", "Charges prévues": "Planned weights", "Charge prévue": "Planned weight", "Aperçu des charges": "Weight preview", "Poids réalisé": "Actual weight", "Poids du corps": "Body weight", "minimum": "minimum", "semaine": "week",
   "Pour les dips, tractions et muscle-ups, le calcul porte sur le poids du corps + le lest. Les charges prévues correspondent uniquement au lest ajouté.": "For dips, pull-ups and muscle-ups, calculations use body weight plus added weight. Planned weights show the added weight only.",

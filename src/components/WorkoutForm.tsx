@@ -1,12 +1,14 @@
 import { t, useLanguage } from '../i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { applyDraftReps, readWorkoutDraft, saveWorkoutDraft, removeWorkoutDraft } from '../workoutDrafts';
 import type { Workout, Exercise } from '../types';
 import { TemplateSelector } from './TemplateSelector';
 import { Icon } from './Icon';
 
 interface WorkoutFormProps {
+  userId: string;
   workout: Workout | null;
-  onSave: (workout: Workout) => void;
+  onSave: (workout: Workout) => Promise<boolean>;
   onCancel: () => void;
 }
 
@@ -68,13 +70,42 @@ const EXERCISE_SUGGESTIONS = [
   'Mollet presse horizontal',
 ];
 
-export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
+export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormProps) {
   useLanguage();
-  const [name, setName] = useState(workout?.name || '');
-  const [date, setDate] = useState(workout?.date || new Date().toISOString().split('T')[0]);
-  const [exercises, setExercises] = useState<Exercise[]>(workout?.exercises || []);
+  const [restored] = useState(() => readWorkoutDraft(userId, workout?.id));
+  const [initial] = useState<Workout>(() => restored?.workout ?? workout ?? { id: crypto.randomUUID(), name: '', date: new Date().toLocaleDateString('en-CA'), exercises: [] });
+  const [name, setName] = useState(initial.name);
+  const [date, setDate] = useState(initial.date);
+  const [exercises, setExercises] = useState<Exercise[]>(initial.exercises);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [repsInputValues, setRepsInputValues] = useState<{ [key: string]: string }>({});
+  const [repsInputValues, setRepsInputValues] = useState<Record<string, string>>(restored?.repsInputValues ?? {});
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [saveError, setSaveError] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const draftWritten = useRef(Boolean(restored));
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
+  }, []);
+  useLayoutEffect(() => {
+    if (!draftWritten.current && name === initial.name && date === initial.date && exercises === initial.exercises && !Object.keys(repsInputValues).length) return;
+    try {
+      saveWorkoutDraft(userId, { version: 1, mode: workout ? 'edit' : 'create', workout: { id: initial.id, name, date, exercises }, repsInputValues, updatedAt: new Date().toISOString() });
+      draftWritten.current = true;
+      setDraftStatus('saved');
+    } catch { setDraftStatus('error'); }
+  }, [userId, workout, restored, initial, name, date, exercises, repsInputValues]);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (draftStatus === 'error') { event.preventDefault(); event.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [draftStatus]);
   const exerciseRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [exerciseToReveal, setExerciseToReveal] = useState<string | null>(null);
 
@@ -198,16 +229,23 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || exercises.length === 0) return;
-    
-    onSave({
-      id: workout?.id || generateId(),
+    if (savingRef.current || !name.trim() || !exercises.some(ex => ex.name.trim())) return;
+    savingRef.current = true;
+    setSaving(true); setSaveError(false);
+    const next = applyDraftReps({
+      id: initial.id,
       name: name.trim(),
       date,
       exercises: exercises.filter(ex => ex.name.trim()),
-    });
+    }, repsInputValues);
+    try {
+      if (!await onSave(next)) { setSaveError(true); return; }
+      try { removeWorkoutDraft(userId, workout?.id); } catch { /* Keep the recoverable copy if storage is unavailable. */ }
+      onCancel();
+    } catch { setSaveError(true); }
+    finally { savingRef.current = false; setSaving(false); }
   };
 
   if (showTemplateSelector) {
@@ -223,13 +261,18 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
 
   return (
     <form className="workout-form" onSubmit={handleSubmit}>
+      <fieldset className="workout-form-fields" disabled={saving}>
       <div className="form-header">
         <div><p className="eyebrow">{t('À TON RYTHME')}</p><h2>{workout ? t("Modifier la séance") : t("Nouvelle séance")}</h2><p className="page-description">{t('Compose ta séance, exercice après exercice.')}</p></div>
         <div className="form-actions">
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>{t("Annuler")} </button>
-          <button type="submit" className="btn btn-primary" disabled={!name.trim() || exercises.length === 0}>{t("Enregistrer")} </button>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>{t("Fermer")} </button>
+          <button type="submit" className="btn btn-primary" disabled={!name.trim() || !exercises.some(ex => ex.name.trim())}>{saving ? t("Enregistrement…") : t("Enregistrer")} </button>
         </div>
       </div>
+
+      {draftStatus === 'saved' && <p className="draft-notice" role="status">{t('Brouillon sauvegardé sur cet appareil.')}{!online && ` ${t('Hors ligne : tu peux continuer à saisir.')}`}</p>}
+      {draftStatus === 'error' && <p className="force-error" role="alert">{t('Sauvegarde locale indisponible. Garde cette page ouverte jusqu’à l’enregistrement.')}</p>}
+      {saveError && <p className="force-error" role="alert">{t('Enregistrement impossible. Tes saisies sont conservées ici. Vérifie ta connexion puis réessaie.')}</p>}
 
       <div className="form-group">
         <label htmlFor="workout-name">{t("Nom de la séance")}</label>
@@ -407,6 +450,7 @@ export function WorkoutForm({ workout, onSave, onCancel }: WorkoutFormProps) {
           </div>
         ))}
       </div>
+      </fieldset>
     </form>
   );
 }

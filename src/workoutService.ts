@@ -9,21 +9,22 @@ function checkClient() {
   return { success: true as const, client: supabase };
 }
 
-export async function addWorkout(userId: string, workout: Omit<Workout, 'id'>) {
+export async function addWorkout(userId: string, workout: Workout) {
   const check = checkClient();
   if (!check.success) return check;
 
   try {
-    const { data, error } = await check.client.from('workouts').insert({
+    const { data, error } = await check.client.from('workouts').upsert({
+      id: workout.id,
       user_id: userId,
       name: workout.name,
       date: workout.date,
       exercises: workout.exercises,
       created_at: new Date().toISOString(),
-    });
+    }, { onConflict: 'id' }).select('*').abortSignal(AbortSignal.timeout(15000)).single();
 
     if (error) throw error;
-    return { success: true, data };
+    return { success: true, data: data as Workout };
   } catch (error) {
     console.error('Erreur ajout séance:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
@@ -60,10 +61,10 @@ export async function updateWorkout(workoutId: string, updates: Partial<Workout>
         name: updates.name,
         exercises: updates.exercises,
       })
-      .eq('id', workoutId);
+      .eq('id', workoutId).select('*').abortSignal(AbortSignal.timeout(15000)).single();
 
     if (error) throw error;
-    return { success: true, data };
+    return { success: true, data: data as Workout };
   } catch (error) {
     console.error('Erreur mise à jour séance:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };

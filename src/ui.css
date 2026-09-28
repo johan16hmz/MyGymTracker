@@ -139,7 +139,7 @@ small { font-size: .78rem; }
 .form-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .form-group { margin-bottom: 20px; }
 .form-group label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: 8px; }
-.workout-form > .form-group { max-width: 560px; }
+.workout-form-fields > .form-group { max-width: 560px; }
 .template-section { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; background: var(--surface-hover); border-radius: 12px; padding: 20px; margin: 28px 0; }
 .template-section p { font-size: .8rem; color: var(--text-muted); max-width: 320px; }
 .exercises-section { margin-top: 32px; }
@@ -371,3 +371,9 @@ small { font-size: .78rem; }
 @media (max-width: 900px) { .nutrition-meal-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .nutrition-page-header { align-items: start; flex-direction: column; gap: 14px; }.nutrition-page-header h1 { font-size: 2.5rem; }.nutrition-datebar { gap: 8px; }.nutrition-datebar > div { min-width: 0; flex: 1; }.nutrition-datebar input { max-width: 134px; font-size: .8rem; }.nutrition-summary { gap: 16px; padding: 18px; }.nutrition-ring { width: 130px; }.nutrition-ring strong { font-size: 1.65rem; }.nutrition-summary-main h2 { font-size: 2.4rem; }.nutrition-macros { gap: 6px; }.nutrition-macros > div { padding: 11px 9px; }.nutrition-macros strong { font-size: 1.1rem; }.nutrition-meal { padding: 18px; }.nutrition-macro-inputs { grid-template-columns: repeat(2,minmax(0,1fr)); }.nutrition-entry { grid-template-columns: minmax(0,1fr) auto; }.nutrition-entry-actions { grid-column: 1 / -1; justify-content: flex-end; }.nutrition-lookup > button { width: 100%; } }
 @media (max-width: 420px) { .nutrition-summary { align-items: start; }.nutrition-ring { width: 110px; }.nutrition-ring strong { font-size: 1.3rem; }.nutrition-ring span { font-size: .57rem; }.nutrition-summary-main h2 { font-size: 1.9rem; }.nutrition-summary-main p { font-size: .8rem; }.nutrition-estimate { grid-template-columns: 1fr; }.nutrition-form-grid { gap: 10px; } }
+.workout-form-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.draft-notice { color: var(--text-muted); font-size: .85rem; margin-bottom: 20px; }
+.draft-list { padding: 20px; margin-bottom: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.draft-list > p { color: var(--text-muted); margin: 8px 0 16px; }
+.draft-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 0; }
+.draft-row > strong { flex: 1 1 180px; overflow-wrap: anywhere; }
