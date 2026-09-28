@@ -11,7 +11,15 @@ export function toStoredWeight(value: number, unit: WeightUnit): number {
   return unit === 'lb' ? Number((value / poundsPerKg).toFixed(2)) : value;
 }
 
+// Text inputs preserve the comma typed on French keyboards; convert only once
+// the complete value is valid, rather than silently truncating at the comma.
+export function parseDecimalInput(value: string): number {
+  const normalized = value.trim().replace(',', '.');
+  return /^(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalized) ? Number(normalized) : NaN;
+}
+
 export function convertWeightInput(value: string, from: WeightUnit, to: WeightUnit): string {
   if (!value.trim() || from === to) return value;
-  return String(toDisplayWeight(toStoredWeight(Number(value), from), to));
+  const parsed = parseDecimalInput(value);
+  return Number.isFinite(parsed) ? String(toDisplayWeight(toStoredWeight(parsed, from), to)) : value;
 }

@@ -5,7 +5,7 @@ import type { Workout } from '../types';
 import { createStrengthBlock, DEFAULT_STRENGTH_EXERCISES, getCurrentStrengthBlockIndex, getStrengthWeeks, MAX_BLOCK_WEEKS, nextCurrentStrengthRank, planStrengthLoads, RPE_TABLE, STRENGTH_EXERCISES, updateStrengthLoads, WEEK_RPES } from '../strength';
 import type { StrengthBlock, StrengthExercise, StrengthExerciseId, StrengthPrescription, StrengthPerformance } from '../strength';
 import { getStrengthBlock, saveStrengthBlock } from '../strengthService';
-import { convertWeightInput, toDisplayWeight, toStoredWeight } from '../weightUnits';
+import { convertWeightInput, parseDecimalInput, toDisplayWeight, toStoredWeight } from '../weightUnits';
 
 interface Props {
   userId: string;
@@ -17,6 +17,8 @@ interface Props {
 const n = (value: number) => value.toLocaleString(locale());
 const weightText = (kg: number, unit: WeightUnit) => `${n(toDisplayWeight(kg, unit))} ${unit}`;
 const emptyTargets = (): Record<string, string> => Object.fromEntries(STRENGTH_EXERCISES.map(ex => [ex.id, '0']));
+const decimalPattern = '(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)';
+const alignedToStep = (value: number, step: number) => Math.abs(value / step - Math.round(value / step)) < 1e-8;
 
 function StrengthSummaryTable({ block, caption, unit }: { block: StrengthBlock; caption: string; unit: WeightUnit }) {
   const weeks = getStrengthWeeks(block);
@@ -40,6 +42,11 @@ function PerformanceForm({ prescription, step, onAdd }: {
   const [open, setOpen] = useState(false);
   const [inputUnit, setInputUnit] = useState(weightUnit);
   const [weightInput, setWeightInput] = useState(String(toDisplayWeight(prescription.weight, weightUnit)));
+  const [rpeInput, setRpeInput] = useState(String(prescription.rpe));
+  const parsedWeight = parseDecimalInput(weightInput);
+  const parsedRpe = parseDecimalInput(rpeInput);
+  const validWeight = Number.isFinite(parsedWeight) && parsedWeight >= 0 && (inputUnit === 'lb' || alignedToStep(parsedWeight, step));
+  const validRpe = Number.isFinite(parsedRpe) && parsedRpe >= 1 && parsedRpe <= 10 && alignedToStep(parsedRpe, 0.5);
   useEffect(() => {
     if (weightUnit === inputUnit) return;
     setWeightInput(value => convertWeightInput(value, inputUnit, weightUnit));
@@ -51,16 +58,17 @@ function PerformanceForm({ prescription, step, onAdd }: {
     </button>
     {open && <form className="force-performance" onSubmit={event => {
       event.preventDefault();
+      if (!validWeight || !validRpe) return;
       const values = new FormData(event.currentTarget);
-      onAdd({ weight: toStoredWeight(Number(weightInput), inputUnit), reps: Number(values.get('reps')), rpe: Number(values.get('rpe')), note: String(values.get('note')), date: new Date().toISOString() });
+      onAdd({ weight: toStoredWeight(parsedWeight, inputUnit), reps: Number(values.get('reps')), rpe: parsedRpe, note: String(values.get('note')), date: new Date().toISOString() });
       setWeightInput(String(toDisplayWeight(prescription.weight, inputUnit)));
       setOpen(false);
     }}>
-      <label>{t("Poids réalisé")} ({inputUnit})<input name="weight" type="number" min="0" step={inputUnit === 'kg' ? step : 'any'} value={weightInput} onChange={event => setWeightInput(event.target.value)} required /></label>
+      <label>{t("Poids réalisé")} ({inputUnit})<input name="weight" type="text" inputMode="decimal" pattern={decimalPattern} value={weightInput} onChange={event => setWeightInput(event.target.value)} required /></label>
       <label>{t("Reps réalisées")}<input name="reps" type="number" min="1" step="1" defaultValue={prescription.reps} required /></label>
-      <label>{t("RPE ressenti")}<input name="rpe" type="number" min="1" max="10" step="0.5" defaultValue={prescription.rpe} required /></label>
+      <label>{t("RPE ressenti")}<input name="rpe" type="text" inputMode="decimal" pattern={decimalPattern} value={rpeInput} onChange={event => setRpeInput(event.target.value)} required /></label>
       <label className="force-note">Note<input name="note" placeholder={t("Ex. : dur, propre, marge…")} maxLength={500} /></label>
-      <button className="btn btn-primary" type="submit">{t("Ajouter au bloc")}</button>
+      <button className="btn btn-primary" type="submit" disabled={!validWeight || !validRpe}>{t("Ajouter au bloc")}</button>
     </form>}
   </>;
 }
@@ -83,19 +91,22 @@ function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
     setInputUnit(weightUnit);
   }, [weightUnit, inputUnit]);
   const recalculated = planStrengthLoads(exercise, bodyWeight ?? 0);
-  const changed = Number(target) !== toDisplayWeight(exercise.target, inputUnit) || (exercise.weighted && Number(bodyWeightInput) !== (bodyWeight === undefined ? undefined : toDisplayWeight(bodyWeight, inputUnit))) || recalculated.some((row, index) => row.weight !== exercise.prescriptions[index].weight);
+  const parsedTarget = parseDecimalInput(target);
+  const parsedBodyWeight = parseDecimalInput(bodyWeightInput);
+  const validInputs = Number.isFinite(parsedTarget) && parsedTarget >= (exercise.weighted ? 0 : toDisplayWeight(exercise.step, inputUnit)) && (!exercise.weighted || (Number.isFinite(parsedBodyWeight) && parsedBodyWeight >= toDisplayWeight(1, inputUnit)));
+  const changed = parsedTarget !== toDisplayWeight(exercise.target, inputUnit) || (exercise.weighted && parsedBodyWeight !== (bodyWeight === undefined ? undefined : toDisplayWeight(bodyWeight, inputUnit))) || recalculated.some((row, index) => row.weight !== exercise.prescriptions[index].weight);
   return <form className="force-load-editor" onSubmit={event => {
     event.preventDefault();
-    if (!changed) return;
-    onApply(toStoredWeight(Number(target), inputUnit), exercise.weighted ? toStoredWeight(Number(bodyWeightInput), inputUnit) : undefined);
+    if (!changed || !validInputs) return;
+    onApply(toStoredWeight(parsedTarget, inputUnit), exercise.weighted ? toStoredWeight(parsedBodyWeight, inputUnit) : undefined);
   }}>
     <label>{t("1RM visé")} ({exercise.weighted ? t("lest ajouté") : t("charge totale")}, {inputUnit})
-      <input type="number" min={exercise.weighted ? 0 : toDisplayWeight(exercise.step, inputUnit)} step="any" required disabled={saving} value={target} onChange={event => setTarget(event.target.value)} />
+      <input type="text" inputMode="decimal" pattern={decimalPattern} required disabled={saving} value={target} onChange={event => setTarget(event.target.value)} />
     </label>
     {exercise.weighted && <label>{t("Poids du corps")} ({inputUnit})
-      <input type="number" min={toDisplayWeight(1, inputUnit)} step="any" required disabled={saving} value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
+      <input type="text" inputMode="decimal" pattern={decimalPattern} required disabled={saving} value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
     </label>}
-    <button className="btn btn-secondary btn-small" type="submit" disabled={!changed || saving}>{t("Recalculer les charges")}</button>
+    <button className="btn btn-secondary btn-small" type="submit" disabled={!changed || !validInputs || saving}>{t("Recalculer les charges")}</button>
     <small>{exercise.weighted ? t("Le poids du corps est commun aux dips, tractions et muscle-ups. Les charges prévues sont recalculées ; les performances enregistrées restent intactes.") : t("Les charges prévues de cet exercice sont recalculées ; les performances enregistrées restent intactes.")}</small>
   </form>;
 }
@@ -132,9 +143,12 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   }, [weightUnit, entryUnit]);
   const needsBodyWeight = exerciseIds.some(id => STRENGTH_EXERCISES.find(ex => ex.id === id)?.weighted);
   const preview = useMemo(() => {
-    if (exerciseIds.some(id => !targets[id]?.trim()) || (needsBodyWeight && !bodyWeightInput.trim())) return undefined;
+    const selectedExercises = STRENGTH_EXERCISES.filter(ex => exerciseIds.includes(ex.id));
+    const parsedTargets = Object.fromEntries(selectedExercises.map(ex => [ex.id, parseDecimalInput(targets[ex.id] ?? '')]));
+    const parsedBodyWeight = parseDecimalInput(bodyWeightInput);
+    if (selectedExercises.some(ex => !Number.isFinite(parsedTargets[ex.id]) || parsedTargets[ex.id] < (ex.weighted ? 0 : toDisplayWeight(ex.step, entryUnit))) || (needsBodyWeight && (!Number.isFinite(parsedBodyWeight) || parsedBodyWeight < toDisplayWeight(1, entryUnit)))) return undefined;
     try {
-      return createStrengthBlock(Object.fromEntries(Object.entries(targets).map(([key, value]) => [key, toStoredWeight(Number(value), entryUnit)])), toStoredWeight(Number(bodyWeightInput), entryUnit), { exerciseIds, weekRpes });
+      return createStrengthBlock(Object.fromEntries(selectedExercises.map(ex => [ex.id, toStoredWeight(parsedTargets[ex.id], entryUnit)])), needsBodyWeight ? toStoredWeight(parsedBodyWeight, entryUnit) : 0, { exerciseIds, weekRpes });
     } catch { return undefined; }
   }, [targets, bodyWeightInput, exerciseIds, weekRpes, needsBodyWeight, entryUnit]);
 
@@ -182,7 +196,8 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
     {creating ? <form className="force-panel" onSubmit={event => {
       event.preventDefault();
       try {
-        const next = createStrengthBlock(Object.fromEntries(Object.entries(targets).map(([key, value]) => [key, toStoredWeight(Number(value), entryUnit)])), toStoredWeight(Number(bodyWeightInput), entryUnit), { exerciseIds, weekRpes });
+        if (!preview) return;
+        const next = preview;
         setActiveWeek(1); setExerciseId(next.exercises[0].id);
         void persist(records.length ? next : { ...next, currentRank: 1 }, name.trim());
       } catch (err) { setError(err instanceof Error ? t(err.message) : t('Vérifie les informations saisies.')); }
@@ -198,12 +213,12 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
       <div className="force-rpe-planner">{weekRpes.map((rpe, index) => <label key={index}>{t("Semaine")} {index + 1}<select aria-label={`${t('Semaine')} ${index + 1} · RPE`} value={rpe} onChange={event => setWeekRpes(previous => previous.map((value, i) => i === index ? Number(event.target.value) : value))}>{[...RPE_TABLE].reverse().map(row => <option key={row.rpe} value={row.rpe}>RPE {n(row.rpe)}</option>)}</select></label>)}</div>
       <fieldset className="force-exercise-picker"><legend>{t("Exercices du bloc")}</legend>{STRENGTH_EXERCISES.map(ex => <label key={ex.id} className={exerciseIds.includes(ex.id) ? 'selected' : ''}><input type="checkbox" checked={exerciseIds.includes(ex.id)} onChange={event => setExerciseIds(previous => event.target.checked ? STRENGTH_EXERCISES.filter(item => previous.includes(item.id) || item.id === ex.id).map(item => item.id) : previous.filter(id => id !== ex.id))} /><span>{t(ex.name)}</span></label>)}</fieldset>
       {!exerciseIds.length && <p className="force-help">{t("Choisis au moins un exercice valide.")}</p>}
-      {needsBodyWeight && <label className="force-bodyweight">{t("Poids du corps")} ({entryUnit})<input type="number" min={toDisplayWeight(1, entryUnit)} step="any" required value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
+      {needsBodyWeight && <label className="force-bodyweight">{t("Poids du corps")} ({entryUnit})<input type="text" inputMode="decimal" pattern={decimalPattern} required value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
         <small>{t("Utilisé pour calculer le lest des dips, tractions et muscle-ups.")}</small>
       </label>}
       <div className="force-targets">{STRENGTH_EXERCISES.filter(ex => exerciseIds.includes(ex.id)).map(ex => <label key={ex.id}>
         <strong>{t(ex.name)}</strong><span>{t("1RM visé ·")} {ex.weighted ? t("lest ajouté") : t("charge totale")} ({entryUnit})</span>
-        <input type="number" min={ex.weighted ? 0 : toDisplayWeight(ex.step, entryUnit)} step="any" required value={targets[ex.id]} onChange={event => setTargets({ ...targets, [ex.id]: event.target.value })} />
+        <input type="text" inputMode="decimal" pattern={decimalPattern} required value={targets[ex.id]} onChange={event => setTargets({ ...targets, [ex.id]: event.target.value })} />
         <small>{t("Arrondi au plus proche :")} {weightText(ex.step, entryUnit)}</small>
       </label>)}</div>
       {needsBodyWeight && <p className="force-help">{t("Pour les dips, tractions et muscle-ups, le calcul porte sur le poids du corps + le lest. Les charges prévues correspondent uniquement au lest ajouté.")} ({t("minimum")} 0 {entryUnit})</p>}
@@ -246,9 +261,11 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
           <header><h4>{t("Semaine")} {week}</h4><span>RPE {n(exercise.prescriptions.find(row => row.week === week)?.rpe ?? 0)}</span></header>
           {exercise.prescriptions.filter(row => row.week === week).map(row => <div className="force-prescription" key={row.id}>
             <div className="force-prescription-heading"><strong>× {row.reps} reps</strong><small>{n(RPE_TABLE.find(r => r.rpe === row.rpe)!.percentages[row.reps - 1])} {t("% du 1RM")}</small></div>
-            <label>{t("Charge prévue")} ({weightUnit})<input key={`${row.weight}-${weightUnit}`} aria-label={`${t("Charge prévue")} ${t(exercise.name)} ${t("semaine")} ${row.week}, ${row.reps} reps (${weightUnit})`} type="number" min="0" step={weightUnit === 'kg' ? exercise.step : 'any'} defaultValue={toDisplayWeight(row.weight, weightUnit)} onBlur={event => {
-              if (event.target.value !== '' && event.target.validity.valid) {
-                if (Number(event.target.value) !== toDisplayWeight(row.weight, weightUnit)) updatePrescription(row.id, { weight: toStoredWeight(Number(event.target.value), weightUnit) });
+            <label>{t("Charge prévue")} ({weightUnit})<input key={`${row.weight}-${weightUnit}`} aria-label={`${t("Charge prévue")} ${t(exercise.name)} ${t("semaine")} ${row.week}, ${row.reps} reps (${weightUnit})`} type="text" inputMode="decimal" pattern={decimalPattern} defaultValue={toDisplayWeight(row.weight, weightUnit)} onBlur={event => {
+              const parsed = parseDecimalInput(event.target.value);
+              if (Number.isFinite(parsed) && parsed >= 0 && (weightUnit === 'lb' || alignedToStep(parsed, exercise.step))) {
+                if (parsed !== toDisplayWeight(row.weight, weightUnit)) updatePrescription(row.id, { weight: toStoredWeight(parsed, weightUnit) });
+                event.target.value = String(parsed);
               } else {
                 event.target.value = String(toDisplayWeight(row.weight, weightUnit));
               }

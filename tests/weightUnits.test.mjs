@@ -6,7 +6,16 @@ import ts from 'typescript';
 const { outputText } = ts.transpileModule(readFileSync(new URL('../src/weightUnits.ts', import.meta.url), 'utf8'), {
   compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
 });
-const { toDisplayWeight, toStoredWeight, convertWeightInput } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const { toDisplayWeight, toStoredWeight, convertWeightInput, parseDecimalInput } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+
+test('la virgule et le point sont acceptés sans tronquer la valeur', () => {
+  assert.equal(parseDecimalInput('7,5'), 7.5);
+  assert.equal(parseDecimalInput('7.5'), 7.5);
+  assert.equal(parseDecimalInput(',5'), 0.5);
+  assert.equal(parseDecimalInput(' 12,25 '), 12.25);
+  for (const invalid of ['', '7,5,2', '7,5kg', '-1', '1 000,5']) assert.ok(Number.isNaN(parseDecimalInput(invalid)));
+  assert.equal(convertWeightInput('7,5', 'kg', 'lb'), '16.53');
+});
 
 test('les charges de force restent en kg et s’affichent en livres', () => {
   assert.equal(toDisplayWeight(100, 'kg'), 100);
