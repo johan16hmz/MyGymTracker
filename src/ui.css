@@ -219,6 +219,8 @@ small { font-size: .78rem; }
 .force-preview th:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
 .force-preview thead { background: var(--surface-hover); }
 .force-preview small { margin-top: 5px; }
+.force-block-summary summary { cursor: pointer; font-weight: 650; min-height: 32px; }
+.force-block-summary .force-preview { margin: 14px 0 0; }
 .force-page label { display: flex; flex-direction: column; gap: 8px; font-size: .78rem; font-weight: 550; }
 .force-page small { display: block; font-size: .7rem; color: var(--text-muted); font-weight: 400; }
 .force-targets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 24px 0; }

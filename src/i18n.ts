@@ -23,6 +23,8 @@ export function setWeightUnit(next: WeightUnit) { weightUnit = next; try { local
 export function useWeightUnit() { return useSyncExternalStore(listener => { unitListeners.add(listener); return () => unitListeners.delete(listener); }, () => weightUnit); }
 export function formatWeight(value: number) { const converted = weightUnit === 'lb' ? value * 2.2046226218 : value; return `${Math.round(converted * 10) / 10} ${weightUnit}`; }
 export const english: Record<string, string> = {
+  "Récapitulatif du bloc": "Block overview", "Charges prévues": "Planned weights", "Charge prévue": "Planned weight", "Aperçu des charges": "Weight preview", "Poids réalisé": "Actual weight", "Poids du corps": "Body weight", "minimum": "minimum", "semaine": "week",
+  "Pour les dips, tractions et muscle-ups, le calcul porte sur le poids du corps + le lest. Les charges prévues correspondent uniquement au lest ajouté.": "For dips, pull-ups and muscle-ups, calculations use body weight plus added weight. Planned weights show the added weight only.",
   "Ton cycle. Tes exercices. Tes performances.": "Your cycle. Your exercises. Your performance.",
   "Préparer mon bloc": "Build my block",
   "Choisis la durée, le RPE de chaque semaine et tes exercices. Chaque semaine comprend du ×5 et du ×3.": "Choose the duration, each week's RPE and your exercises. Each week includes ×5 and ×3 work.",
