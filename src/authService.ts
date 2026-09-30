@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import type { AuthChangeEvent } from '@supabase/supabase-js';
 
 export interface AuthUser {
   id: string;
@@ -50,7 +51,7 @@ export async function signUp(email: string, password: string, username?: string)
       });
     }
 
-    return { success: true, user: data.user };
+    return { success: true, user: data.user, session: data.session };
   } catch (error) {
     console.error('Erreur inscription:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
@@ -104,20 +105,47 @@ export async function getCurrentUser() {
   }
 }
 
-export function onAuthStateChange(callback: (user: AuthUser | null) => void) {
+export async function requestPasswordReset(email: string) {
+  const check = checkClient();
+  if (!check.success) return check;
+  const redirectTo = new URL(getEmailRedirectUrl());
+  redirectTo.searchParams.set('auth', 'recovery');
+  try {
+    const { error } = await check.client.auth.resetPasswordForEmail(email.trim(), { redirectTo: redirectTo.href });
+    if (error) return { success: false, error: 'Envoi impossible pour le moment. Réessaie plus tard.' };
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Envoi impossible pour le moment. Réessaie plus tard.' };
+  }
+}
+
+export async function updatePassword(password: string) {
+  const check = checkClient();
+  if (!check.success) return check;
+  if (password.length < 8) return { success: false, error: 'Utilise au moins 8 caractères.' };
+  try {
+    const { error } = await check.client.auth.updateUser({ password });
+    if (error) return { success: false, error: 'Modification impossible. Réessaie ou demande un nouveau lien.' };
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Modification impossible. Réessaie ou demande un nouveau lien.' };
+  }
+}
+
+export function onAuthStateChange(callback: (user: AuthUser | null, event: AuthChangeEvent) => void) {
   if (!supabase) {
-    callback(null);
+    callback(null, 'INITIAL_SESSION');
     return { data: { subscription: { unsubscribe() {} } } };
   }
 
-  return supabase.auth.onAuthStateChange((_event, session) => {
+  return supabase.auth.onAuthStateChange((event, session) => {
     if (session?.user) {
       callback({
         id: session.user.id,
         email: session.user.email || '',
-      });
+      }, event);
     } else {
-      callback(null);
+      callback(null, event);
     }
   });
 }

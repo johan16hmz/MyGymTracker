@@ -1,135 +1,53 @@
 import { t, useLanguage } from '../i18n';
 import { useState } from 'react';
-import { signIn, signUp } from '../authService';
-import { Icon } from './Icon';
-import { Settings } from './Settings';
+import { requestPasswordReset, signIn, signUp } from '../authService';
+import { AuthLayout } from './AuthLayout';
 
-interface LoginProps {
-  onLogin: (username: string) => void;
-}
+interface LoginProps { onLogin: (username: string) => void; }
 
 export function Login({ onLogin }: LoginProps) {
   useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const changeMode = (next: typeof mode) => { setMode(next); setError(''); setMessage(''); setPassword(''); };
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!email.trim()) {
-      setError(t("Veuillez entrer un email"));
-      return;
-    }
-
-    if (!password.trim()) {
-      setError(t("Veuillez entrer un mot de passe"));
-      return;
-    }
-
+    e.preventDefault(); setError(''); setMessage('');
+    if (!email.trim()) { setError(t('Veuillez entrer un email')); return; }
+    if (mode !== 'forgot' && !password.trim()) { setError(t('Veuillez entrer un mot de passe')); return; }
     setLoading(true);
-
     try {
-      let result;
-      
-      if (isSignUp) {
-        result = await signUp(email.trim(), password.trim());
-      } else {
-        result = await signIn(email.trim(), password.trim());
+      if (mode === 'forgot') {
+        const result = await requestPasswordReset(email);
+        if (result.success) setMessage(t('Si un compte correspond à cette adresse, tu recevras un lien pour choisir un nouveau mot de passe. Pense à vérifier tes spams.'));
+        else setError(t(result.error || 'Envoi impossible pour le moment. Réessaie plus tard.'));
+        return;
       }
-
-      if (result.success && result.user) {
-        onLogin(result.user.email || email);
-      } else {
-        setError(result.error || t("Erreur lors de l'authentification"));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("Erreur inconnue"));
-    } finally {
-      setLoading(false);
-    }
+      const result = mode === 'signup' ? await signUp(email.trim(), password) : await signIn(email.trim(), password);
+      if (!result.success) { setError(t(result.error || "Erreur lors de l'authentification")); return; }
+      if (mode === 'signup' && !result.session) {
+        setMessage(t('Vérifie ta boîte mail pour confirmer ton inscription, puis connecte-toi. Pense à vérifier tes spams.')); setPassword('');
+      } else if (result.user) onLogin(result.user.email || email);
+    } catch { setError(t("Erreur lors de l'authentification")); }
+    finally { setLoading(false); }
   };
-
-  return (
-    <div className="login-container">
-      <aside className="login-story">
-        <div className="brand"><span className="brand-mark"><img src="/brand-icon.svg?v=3" alt="" /></span><span>MyGymTracker<small>TRAINING JOURNAL</small></span></div>
-        <div className="login-manifesto"><p className="eyebrow">{t('CONSTRUIS TA PROGRESSION')}</p><h2>{t('Chaque séance.')}<br /><em>{t('Un pas de plus.')}</em></h2><p>{t('Tes entraînements, tes objectifs, ton évolution. Tout commence ici.')}</p></div>
-        <div className="track-art" aria-hidden="true"><i /><i /><i /><i /><span>01 — 02 — 03 — 04</span></div>
-        <div className="login-story-footer"><span>{t('La régularité fait la différence.')}</span><Icon name="arrow" /></div>
-      </aside>
-      <div className="login-card">
-        <Settings />
-        <div className="login-header">
-          <p className="eyebrow">{t('TON ESPACE PERSONNEL')}</p>
-          <h1>{t(isSignUp ? 'Commence ton parcours.' : 'Prêt pour la suite ?')}</h1>
-          <p className="login-subtitle">{t(isSignUp ? 'Crée ton compte et prépare ta première séance.' : 'Connecte-toi pour retrouver tes entraînements.')}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t("votre@email.com")}
-              disabled={loading}
-              autoFocus
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">{t("Mot de passe")}</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={t(isSignUp ? "Au moins 8 caractères" : "Mot de passe")}
-              minLength={isSignUp ? 8 : undefined}
-              disabled={loading}
-              autoComplete={isSignUp ? 'new-password' : 'current-password'}
-            />
-          </div>
-
-          {error && <div className="error-message">{error}</div>}
-
-          <button 
-            type="submit" 
-            className="btn btn-primary btn-large"
-            disabled={loading}
-          >
-            {loading ? t("Chargement...") : (isSignUp ? t("Créer compte") : t("Se connecter"))}
-          </button>
-
-          <div className="login-footer">
-            <button
-              type="button"
-              className="toggle-auth"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError('');
-              }}
-              disabled={loading}
-            >
-              {isSignUp 
-                ? t("Vous avez déjà un compte ? Connectez-vous")
-                : t("Pas de compte ? Créez-en un")}
-            </button>
-          </div>
-        </form>
-
-        <div className="login-info">
-          <p>{t("☁️ Vos données sont stockées de manière sécurisée sur Supabase")}</p>
-          <p className="login-copyright">© {new Date().getFullYear()} MyGymTracker · {t('Tous droits réservés.')}</p>
-        </div>
-      </div>
+  return <AuthLayout>
+    <div className="login-header">
+      <p className="eyebrow">{t('TON ESPACE PERSONNEL')}</p>
+      <h1>{t(mode === 'forgot' ? 'Retrouve ton accès.' : mode === 'signup' ? 'Commence ton parcours.' : 'Prêt pour la suite ?')}</h1>
+      <p className="login-subtitle">{t(mode === 'forgot' ? 'Renseigne ton email. On t’enverra un lien pour réinitialiser ton mot de passe.' : mode === 'signup' ? 'Crée ton compte et prépare ta première séance.' : 'Connecte-toi pour retrouver tes entraînements.')}</p>
     </div>
-  );
+    <form onSubmit={handleSubmit} className="login-form">
+      <div className="form-group"><label htmlFor="email">Email</label><input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('votre@email.com')} required disabled={loading} autoFocus autoComplete="email" /></div>
+      {mode !== 'forgot' && <div className="form-group"><label htmlFor="password">{t('Mot de passe')}</label><input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t(mode === 'signup' ? 'Au moins 8 caractères' : 'Mot de passe')} minLength={mode === 'signup' ? 8 : undefined} required disabled={loading} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></div>}
+      {mode === 'signin' && <div className="auth-forgot"><button type="button" className="toggle-auth" disabled={loading} onClick={() => changeMode('forgot')}>{t('Mot de passe oublié ?')}</button></div>}
+      {error && <div className="error-message" role="alert">{error}</div>}
+      {message && <div className="auth-success" role="status">{message}</div>}
+      <button type="submit" className="btn btn-primary btn-large" disabled={loading || !!message}>{t(loading ? 'Chargement...' : mode === 'forgot' ? 'Envoyer le lien' : mode === 'signup' ? 'Créer compte' : 'Se connecter')}</button>
+      <div className="login-footer"><button type="button" className="toggle-auth" onClick={() => changeMode(mode === 'signin' ? 'signup' : 'signin')} disabled={loading}>{t(mode === 'signin' ? 'Pas de compte ? Créez-en un' : 'Retour à la connexion')}</button></div>
+    </form>
+  </AuthLayout>;
 }

@@ -5,6 +5,8 @@ import { WorkoutList } from './components/WorkoutList';
 import { WorkoutForm } from './components/WorkoutForm';
 import { WorkoutDetail } from './components/WorkoutDetail';
 import { Login } from './components/Login';
+import { ResetPassword } from './components/ResetPassword';
+import { clearRecoveryLocation, hasRecoveryErrorLocation, isRecoveryLocation } from './authRecovery';
 import { Strength } from './components/Strength';
 import { getStrengthBlock } from './strengthService';
 import { onAuthStateChange, signOut } from './authService';
@@ -19,6 +21,9 @@ const Nutrition = lazy(() => import('./components/Nutrition').then(module => ({ 
 function App() {
   useLanguage();
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(() => isRecoveryLocation(window.location.href));
+  const [authReady, setAuthReady] = useState(false);
+  const [recoveryInvalid, setRecoveryInvalid] = useState(() => hasRecoveryErrorLocation(window.location.href));
   const [userId, setUserId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'strength' | 'nutrition'>('list');
@@ -36,8 +41,10 @@ function App() {
   // Écouter les changements d'authentification
   useEffect(() => {
     let active = true;
-    const { data: { subscription } } = onAuthStateChange(async (user) => {
+    const { data: { subscription } } = onAuthStateChange(async (user, event) => {
       if (!active) return;
+      setAuthReady(true);
+      if (event === 'PASSWORD_RECOVERY') { setPasswordRecovery(true); setRecoveryInvalid(false); }
       if (activeUserId.current !== (user?.id ?? null)) {
         setView('list'); setSelectedWorkout(null); setWorkouts([]); setDrafts([]);
         setLoadingWorkouts(true); setLoadError('');
@@ -130,6 +137,10 @@ function App() {
     setView('list');
     setSelectedWorkout(null);
   };
+
+  if (passwordRecovery) {
+    return <ResetPassword ready={authReady} hasSession={!!currentUser} invalidLink={recoveryInvalid} onDone={() => { clearRecoveryLocation(); setPasswordRecovery(false); }} />;
+  }
 
   if (!currentUser) {
     return <Login onLogin={() => {}} />;

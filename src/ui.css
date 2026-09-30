@@ -287,6 +287,9 @@ small { font-size: .78rem; }
 .login-footer { margin-top: 22px; text-align: center; }.toggle-auth { background: transparent; border: 0; color: var(--text-muted); font-size: .8rem; padding: 10px; text-decoration: underline; text-underline-offset: 4px; }
 .login-info { border-top: 1px solid var(--border); margin-top: 40px; padding-top: 20px; color: var(--text-muted); font-size: .65rem; text-align: center; }
 .login-copyright { margin-top: 10px; }
+.auth-forgot { text-align: right; margin: -12px 0 14px; }
+.auth-forgot .toggle-auth { padding-right: 0; }
+.auth-success { padding: 16px; margin: 0 0 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-hover); color: var(--success); font-size: .85rem; }
 @media (min-width: 1500px) { .workout-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 1200px) { .app { padding-left: 218px; }.app-header { width: 218px; padding-inline: 16px; }.app-main { padding-inline: 28px; }.force-targets { grid-template-columns: repeat(2, minmax(0, 1fr)); }.dashboard-hero > div:first-child { padding: 28px; }.overview-stats > div { padding: 20px; } }
 @media (max-width: 900px) { .hero-art { display: none; }.dashboard-hero { grid-template-columns: 1fr; }.exercise-groups { grid-template-columns: 1fr; }.form-header { flex-wrap: wrap; }.login-story { padding: 32px; }.login-card { padding: 32px; } }
