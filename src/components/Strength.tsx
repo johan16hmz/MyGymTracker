@@ -32,9 +32,8 @@ function StrengthSummaryTable({ block, caption, unit }: { block: StrengthBlock; 
   </table></div>;
 }
 
-function PerformanceForm({ prescription, step, onAdd }: {
+function PerformanceForm({ prescription, onAdd }: {
   prescription: StrengthPrescription;
-  step: number;
   onAdd: (performance: StrengthPerformance) => void;
 }) {
   useLanguage();
@@ -45,7 +44,7 @@ function PerformanceForm({ prescription, step, onAdd }: {
   const [rpeInput, setRpeInput] = useState(String(prescription.rpe));
   const parsedWeight = parseDecimalInput(weightInput);
   const parsedRpe = parseDecimalInput(rpeInput);
-  const validWeight = Number.isFinite(parsedWeight) && parsedWeight >= 0 && (inputUnit === 'lb' || alignedToStep(parsedWeight, step));
+  const validWeight = Number.isFinite(parsedWeight) && parsedWeight >= 0;
   const validRpe = Number.isFinite(parsedRpe) && parsedRpe >= 1 && parsedRpe <= 10 && alignedToStep(parsedRpe, 0.5);
   useEffect(() => {
     if (weightUnit === inputUnit) return;
@@ -263,7 +262,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
             <div className="force-prescription-heading"><strong>× {row.reps} reps</strong><small>{n(RPE_TABLE.find(r => r.rpe === row.rpe)!.percentages[row.reps - 1])} {t("% du 1RM")}</small></div>
             <label>{t("Charge prévue")} ({weightUnit})<input key={`${row.weight}-${weightUnit}`} aria-label={`${t("Charge prévue")} ${t(exercise.name)} ${t("semaine")} ${row.week}, ${row.reps} reps (${weightUnit})`} type="text" inputMode="decimal" pattern={decimalPattern} defaultValue={toDisplayWeight(row.weight, weightUnit)} onBlur={event => {
               const parsed = parseDecimalInput(event.target.value);
-              if (Number.isFinite(parsed) && parsed >= 0 && (weightUnit === 'lb' || alignedToStep(parsed, exercise.step))) {
+              if (Number.isFinite(parsed) && parsed >= 0) {
                 if (parsed !== toDisplayWeight(row.weight, weightUnit)) updatePrescription(row.id, { weight: toStoredWeight(parsed, weightUnit) });
                 event.target.value = String(parsed);
               } else {
@@ -280,7 +279,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
                 if (confirm(t("Retirer cette performance du bloc ?"))) updatePrescription(row.id, { performances: row.performances.filter((_, i) => i !== perfIndex) });
               }}>{t("Retirer")}</button>
             </div>)}
-            <PerformanceForm key={`${row.id}-${row.weight}`} prescription={row} step={exercise.step} onAdd={performance => updatePrescription(row.id, { performances: [...row.performances, performance] })} />
+            <PerformanceForm key={`${row.id}-${row.weight}`} prescription={row} onAdd={performance => updatePrescription(row.id, { performances: [...row.performances, performance] })} />
           </div>)}
         </section>)}</div>
       </fieldset>

@@ -4,6 +4,7 @@ import { applyDraftReps, readWorkoutDraft, saveWorkoutDraft, removeWorkoutDraft 
 import type { Workout, Exercise } from '../types';
 import { TemplateSelector } from './TemplateSelector';
 import { Icon } from './Icon';
+import { DecimalInput } from './DecimalInput';
 
 interface WorkoutFormProps {
   userId: string;
@@ -383,8 +384,7 @@ export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormPr
               {exercise.sets.map((set, setIndex) => (
                 <div key={set.id} className="set-row">
                   <span className="set-number">{setIndex + 1}</span>
-                  <input
-                    type="number"
+                  <DecimalInput
                     aria-label={`${t('Poids (kg)')} · ${t('Série')} ${setIndex + 1}`}
                     value={set.weight || ''}
                     onChange={e => updateSet(exercise.id, set.id, 'weight', parseFloat(e.target.value) || 0)}

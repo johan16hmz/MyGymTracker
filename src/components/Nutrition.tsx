@@ -10,6 +10,7 @@ import { foodCodeFromScan } from '../nutritionScan';
 import { loadNutritionDay, loadNutritionProfile, saveNutritionDay, saveNutritionProfile } from '../nutritionService';
 import type { Workout } from '../types';
 import { Icon } from './Icon';
+import { DecimalInput } from './DecimalInput';
 
 const meals: Meal[] = ['breakfast', 'lunch', 'snack', 'dinner'];
 const mealNames: Record<Meal, string> = { breakfast: 'Petit-déjeuner', lunch: 'Déjeuner', snack: 'En-cas', dinner: 'Dîner' };
@@ -63,8 +64,8 @@ function ProfileForm({ initial, onSave, onCancel, saving }: {
       {(['lose', 'maintain', 'gain'] as const).map(option => <label key={option} className={goal === option ? 'selected' : ''}><input type="radio" name="goal" checked={goal === option} onChange={() => setGoal(option)} />{t(option === 'lose' ? 'Perdre du poids' : option === 'gain' ? 'Prendre du poids' : 'Maintenir mon poids')}</label>)}
     </fieldset>
     <div className="nutrition-form-grid">
-      <label>{t('Poids actuel')} ({weightUnit})<input type="number" required min={weightUnit === 'lb' ? 55 : 25} max={weightUnit === 'lb' ? 882 : 400} step="0.1" value={weightKg} onChange={e => setWeightKg(e.target.value)} /></label>
-      <label>{t('Poids visé')} ({weightUnit})<input type="number" required min={weightUnit === 'lb' ? 55 : 25} max={weightUnit === 'lb' ? 882 : 400} step="0.1" value={targetKg} onChange={e => setTargetKg(e.target.value)} /></label>
+      <label>{t('Poids actuel')} ({weightUnit})<DecimalInput required min={weightUnit === 'lb' ? 55 : 25} max={weightUnit === 'lb' ? 882 : 400} step="0.1" value={weightKg} onChange={e => setWeightKg(e.target.value)} /></label>
+      <label>{t('Poids visé')} ({weightUnit})<DecimalInput required min={weightUnit === 'lb' ? 55 : 25} max={weightUnit === 'lb' ? 882 : 400} step="0.1" value={targetKg} onChange={e => setTargetKg(e.target.value)} /></label>
       <label>{t('Âge (années)')}<input type="number" required min="18" max="100" step="1" value={age} onChange={e => setAge(e.target.value)} /></label>
       <label>{t('Taille (cm)')}<input type="number" required min="100" max="250" step="1" value={heightCm} onChange={e => setHeightCm(e.target.value)} /></label>
       <label>{t('Équation de calcul')}<select required value={equationSex} onChange={e => setEquationSex(e.target.value as EquationSex | '')}><option value="">{t('Choisir une formule')}</option><option value="male">{t('Formule homme')}</option><option value="female">{t('Formule femme')}</option></select></label>
@@ -226,9 +227,9 @@ function FoodComposer({ meal, existing, onSave, onClose }: {
       void onSave(entry).then(onClose).catch(err => setError(err instanceof Error ? err.message : t('Enregistrement impossible.'))).finally(() => setSaving(false));
     }}>
       <div className="nutrition-form-grid"><label className="nutrition-name">{t('Nom de l’aliment')}<input required maxLength={150} value={name} onChange={e => setName(e.target.value)} placeholder={t('Ex. yaourt nature')} /></label><label>{t('Marque (facultatif)')}<input maxLength={100} value={brand} onChange={e => setBrand(e.target.value)} /></label></div>
-      <div className="nutrition-form-grid nutrition-quantity"><label>{t('Quantité consommée')}<input type="number" required min="0.1" max="10000" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} /></label><label>{t('Unité')}<select value={unit} onChange={e => setUnit(e.target.value as 'g' | 'ml')}><option value="g">g</option><option value="ml">ml</option></select></label></div>
+      <div className="nutrition-form-grid nutrition-quantity"><label>{t('Quantité consommée')}<DecimalInput required min="0.1" max="10000" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} /></label><label>{t('Unité')}<select value={unit} onChange={e => setUnit(e.target.value as 'g' | 'ml')}><option value="g">g</option><option value="ml">ml</option></select></label></div>
       <p className="nutrition-form-caption">{t('Valeurs pour 100 g ou 100 ml')}</p>
-      <div className="nutrition-form-grid nutrition-macro-inputs"><label>{t('Calories (kcal)')}<input type="number" required min="0" step="any" value={kcal} onChange={e => setKcal(e.target.value)} /></label><label>{t('Protéines (g)')}<input type="number" required min="0" step="any" value={protein} onChange={e => setProtein(e.target.value)} /></label><label>{t('Glucides (g)')}<input type="number" required min="0" step="any" value={carbs} onChange={e => setCarbs(e.target.value)} /></label><label>{t('Lipides (g)')}<input type="number" required min="0" step="any" value={fat} onChange={e => setFat(e.target.value)} /></label></div>
+      <div className="nutrition-form-grid nutrition-macro-inputs"><label>{t('Calories (kcal)')}<DecimalInput required min="0" step="any" value={kcal} onChange={e => setKcal(e.target.value)} /></label><label>{t('Protéines (g)')}<DecimalInput required min="0" step="any" value={protein} onChange={e => setProtein(e.target.value)} /></label><label>{t('Glucides (g)')}<DecimalInput required min="0" step="any" value={carbs} onChange={e => setCarbs(e.target.value)} /></label><label>{t('Lipides (g)')}<DecimalInput required min="0" step="any" value={fat} onChange={e => setFat(e.target.value)} /></label></div>
       {source === 'openfoodfacts' && <p className="nutrition-attribution">{t('Données issues d’')}<a href="https://world.openfoodfacts.org/" target="_blank" rel="noreferrer">Open Food Facts</a> · {t('Vérifie toujours l’étiquette du produit.')}</p>}
       {error && <p className="nutrition-error" role="alert">{error}</p>}
       <div className="nutrition-actions"><button className="btn btn-primary" type="submit" disabled={saving}>{saving ? t('Enregistrement…') : t('Ajouter au journal')}</button><button className="btn btn-secondary" type="button" onClick={onClose}>{t('Annuler')}</button></div>

@@ -2,6 +2,7 @@ import { t, useLanguage, locale, formatWeight, useWeightUnit } from '../i18n';
 import { useState, useCallback, useEffect } from 'react';
 import type { Workout, Exercise } from '../types';
 import { Icon } from './Icon';
+import { DecimalInput } from './DecimalInput';
 
 interface WorkoutListProps {
   workouts: Workout[];
@@ -59,7 +60,8 @@ export function WorkoutList({
     let newReps = 0;
 
     if (editingSet.field === 'weight') {
-      newWeight = parseFloat(editValue) || 0;
+      newWeight = editValue.trim() === '' ? 0 : Number(editValue.replace(',', '.'));
+      if (!Number.isFinite(newWeight) || newWeight < 0) return;
     } else {
       const value = editValue.trim();
       if (value === '') {
@@ -189,11 +191,11 @@ export function WorkoutList({
                                   tabIndex={0}
                                   aria-label={`${t('Modifier')} · ${exercise.name} · ${t('Série')} ${setIdx + 1} · ${t('Poids (kg)')}`}
                                   onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); handleSetClick(exercise.id, set.id, 'weight', getSetValue(set, 'weight')); } }}
-                                  onClick={() => handleSetClick(exercise.id, set.id, 'weight', getSetValue(set, 'weight'))}
+                                  onClick={event => { if (!(event.target instanceof HTMLInputElement)) handleSetClick(exercise.id, set.id, 'weight', getSetValue(set, 'weight')); }}
                                 >
                                   {editingSet?.setId === set.id && editingSet.field === 'weight' ? (
-                                    <input
-                                      type="number"
+                                    <DecimalInput
+                                      min="0"
                                       value={editValue}
                                       onChange={e => setEditValue(e.target.value)}
                                       onBlur={handleSetBlur}
