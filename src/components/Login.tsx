@@ -91,7 +91,8 @@ export function Login({ onLogin }: LoginProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={t("Au moins 6 caractères")}
+              placeholder={t(isSignUp ? "Au moins 8 caractères" : "Mot de passe")}
+              minLength={isSignUp ? 8 : undefined}
               disabled={loading}
               autoComplete={isSignUp ? 'new-password' : 'current-password'}
             />

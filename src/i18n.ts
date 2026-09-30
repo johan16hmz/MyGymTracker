@@ -27,6 +27,7 @@ export const english: Record<string, string> = {
   'Hors ligne : tu peux continuer à saisir.': 'Offline: you can keep editing.',
   'Sauvegarde locale indisponible. Garde cette page ouverte jusqu’à l’enregistrement.': 'Local saving is unavailable. Keep this page open until you save.',
   'Enregistrement impossible. Tes saisies sont conservées ici. Vérifie ta connexion puis réessaie.': 'Unable to save. Your entries are still here. Check your connection and try again.',
+  'Au moins 8 caractères': 'At least 8 characters',
   'Brouillons de séances': 'Workout drafts',
   'Tes saisies sont conservées sur cet appareil. Reprends-les pour les enregistrer dans ton compte.': 'Your entries are kept on this device. Resume them to save to your account.',
   'Reprendre': 'Resume',

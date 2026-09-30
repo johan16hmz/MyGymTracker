@@ -41,6 +41,7 @@ const toolError = (error: unknown) => ({ isError: true, content: [{ type: 'text'
 
 function cors(response: Response) {
   const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'no-store');
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, Mcp-Session-Id, Last-Event-ID');
   headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');

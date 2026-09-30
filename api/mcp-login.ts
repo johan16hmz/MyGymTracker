@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 function response(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 }
 
 export async function OPTIONS() {
@@ -23,10 +23,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json() as { email?: unknown; password?: unknown };
-    if (typeof body.email !== 'string' || typeof body.password !== 'string') return response({ error: 'email et password sont requis.' }, 400);
+    if (!body || typeof body.email !== 'string' || typeof body.password !== 'string' || !body.email.trim() || body.email.length > 254 || !body.password || body.password.length > 4096) return response({ error: 'email et password valides sont requis.' }, 400);
     const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
     const { data, error } = await supabase.auth.signInWithPassword({ email: body.email, password: body.password });
-    if (error || !data.session || !data.user) return response({ error: error?.message ?? 'Connexion impossible.' }, 401);
+    if (error?.status === 429) return response({ error: 'Trop de tentatives. Réessaie plus tard.' }, 429);
+    if (error || !data.session || !data.user) return response({ error: 'Connexion impossible. Vérifie tes identifiants.' }, 401);
     return response({ access_token: data.session.access_token, token_type: 'Bearer', expires_in: data.session.expires_in, expires_at: data.session.expires_at, user: { id: data.user.id, email: data.user.email } });
   } catch {
     return response({ error: 'Requête JSON invalide.' }, 400);

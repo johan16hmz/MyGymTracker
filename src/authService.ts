@@ -16,7 +16,7 @@ function checkClient() {
 // The confirmation page must be reachable from another device. When a user
 // signs up from a local development server, using window.location.origin
 // would put localhost in the e-mail and make the link unusable elsewhere.
-const PRODUCTION_APP_URL = 'https://mygymtracker-five.vercel.app';
+const PRODUCTION_APP_URL = import.meta.env.VITE_APP_URL || 'https://mygymtracker-five.vercel.app';
 
 function getEmailRedirectUrl() {
   if (typeof window === 'undefined') return PRODUCTION_APP_URL;
