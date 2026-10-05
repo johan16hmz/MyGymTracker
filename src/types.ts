@@ -10,6 +10,7 @@ export interface Set {
 }
 
 export interface Exercise {
+  workoutUpdatedAt?: string;
   strengthBlock?: StrengthBlock;
   nutritionProfile?: NutritionProfile;
   nutritionDay?: NutritionDay;
@@ -19,6 +20,7 @@ export interface Exercise {
 }
 
 export interface Workout {
+  created_at?: string;
   id: string;
   name: string;
   date: string;

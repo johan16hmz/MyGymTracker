@@ -116,8 +116,11 @@ export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormPr
     const exerciseElement = exerciseRefs.current[exerciseToReveal];
     if (!exerciseElement) return;
 
-    exerciseElement.querySelector<HTMLInputElement>('input[type="text"]')?.focus({ preventScroll: true });
-    exerciseElement.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' });
+    const mobile = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches;
+    // Opening the virtual keyboard while a smooth scroll runs shifts the mobile
+    // viewport twice. Let the user open the keyboard after the card is revealed.
+    if (!mobile) exerciseElement.querySelector<HTMLInputElement>('input[type="text"]')?.focus({ preventScroll: true });
+    exerciseElement.scrollIntoView({ behavior: mobile || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: mobile ? 'start' : 'center' });
     setExerciseToReveal(null);
   }, [exerciseToReveal, exercises]);
 

@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import type { Workout } from './types';
 import { isNutritionRecord } from './nutritionService';
+import { sortWorkoutsByLastModified, stampWorkoutExercises } from './workoutOrder';
 
 function checkClient() {
   if (!supabase) {
@@ -19,7 +20,7 @@ export async function addWorkout(userId: string, workout: Workout) {
       user_id: userId,
       name: workout.name,
       date: workout.date,
-      exercises: workout.exercises,
+      exercises: stampWorkoutExercises(workout.exercises),
       created_at: new Date().toISOString(),
     }, { onConflict: 'id' }).select('*').abortSignal(AbortSignal.timeout(15000)).single();
 
@@ -43,7 +44,7 @@ export async function getUserWorkouts(userId: string) {
       .order('date', { ascending: false });
 
     if (error) throw error;
-    return { success: true, data: (data as Workout[]).filter(workout => !isNutritionRecord(workout)) };
+    return { success: true, data: sortWorkoutsByLastModified((data as Workout[]).filter(workout => !isNutritionRecord(workout))) };
   } catch (error) {
     console.error('Erreur récupération séances:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue', data: [] as Workout[] };
@@ -59,7 +60,7 @@ export async function updateWorkout(workoutId: string, updates: Partial<Workout>
       .from('workouts')
       .update({
         name: updates.name,
-        exercises: updates.exercises,
+        exercises: updates.exercises && stampWorkoutExercises(updates.exercises),
       })
       .eq('id', workoutId).select('*').abortSignal(AbortSignal.timeout(15000)).single();
 

@@ -23,16 +23,30 @@ export type StrengthExerciseId = typeof STRENGTH_EXERCISES[number]['id'];
 export const DEFAULT_STRENGTH_EXERCISES: StrengthExerciseId[] = ['pullup', 'bench', 'dips', 'squat'];
 export const MAX_BLOCK_WEEKS = 24;
 export const WEEK_RPES = [7, 8, 8.5, 9];
+export const DEFAULT_STRENGTH_SETS = 3;
+export const MAX_STRENGTH_SETS = 10;
+export const DEFAULT_SET_REDUCTION_PERCENT = 1;
+export type StrengthSetsByReps = Partial<Record<3 | 5, number>>;
 export const formatNumber = (value: number) => value.toLocaleString('fr-FR');
 
-export function calculateWeight(target: number, reps: number, rpe: number, step: number, bodyWeight = 0) {
+export function strengthVolumeFactor(sets = DEFAULT_STRENGTH_SETS, reductionPercent = DEFAULT_SET_REDUCTION_PERCENT) {
+  if (!Number.isInteger(sets) || sets < 1 || sets > MAX_STRENGTH_SETS || !Number.isFinite(reductionPercent) || reductionPercent < 0 || reductionPercent > 5) {
+    throw new Error('Choisis de 1 à 10 séries et une réduction de 0 à 5 %.');
+  }
+  // Configurable planning heuristic relative to the user's usual three sets.
+  // Fewer sets do not automatically increase the load or change the target RPE.
+  return 1 - Math.max(0, sets - DEFAULT_STRENGTH_SETS) * reductionPercent / 100;
+}
+
+export function calculateWeight(target: number, reps: number, rpe: number, step: number, bodyWeight = 0, sets = DEFAULT_STRENGTH_SETS, reductionPercent = DEFAULT_SET_REDUCTION_PERCENT) {
+  const volumeFactor = strengthVolumeFactor(sets, reductionPercent);
   const percentage = RPE_TABLE.find(row => row.rpe === rpe)?.percentages[reps - 1];
   if (!Number.isFinite(target) || target < 0 || (target === 0 && bodyWeight === 0) || !Number.isInteger(reps) || !percentage || !Number.isFinite(step) || step <= 0 || !Number.isFinite(bodyWeight) || bodyWeight < 0) {
     throw new Error('Paramètres de calcul invalides.');
   }
   // For weighted bodyweight exercises, the percentage applies to the total load.
   // Only the external load is prescribed; it cannot be negative.
-  return Math.max(0, Math.round(((target + bodyWeight) * percentage / 100 - bodyWeight) / step) * step);
+  return Math.max(0, Math.round(((target + bodyWeight) * percentage / 100 * volumeFactor - bodyWeight) / step) * step);
 }
 
 export interface StrengthPerformance {
@@ -43,6 +57,7 @@ export interface StrengthPerformance {
   date: string;
 }
 export interface StrengthPrescription {
+  sets?: number; // Legacy prescriptions use three working sets.
   id: string;
   week: number;
   reps: number;
@@ -51,6 +66,7 @@ export interface StrengthPrescription {
   performances: StrengthPerformance[];
 }
 export interface StrengthExercise {
+  setReductionPercent?: number;
   id: string;
   name: string;
   target: number;
@@ -86,18 +102,22 @@ export function getStrengthWeeks(block: StrengthBlock): number[] {
 
 export function planStrengthLoads(exercise: StrengthExercise, bodyWeight = 0): StrengthPrescription[] {
   const planned = new Map<string, number>();
-  const previousByReps = new Map<number, { week: number; rpe: number; weight: number }>();
+  const previousByReps = new Map<number, { week: number; rpe: number; weight: number; volumeFactor: number }>();
   for (const row of [...exercise.prescriptions].sort((a, b) => a.week - b.week)) {
-    let weight = calculateWeight(exercise.target, row.reps, row.rpe, exercise.step, exercise.weighted ? bodyWeight : 0);
+    const sets = row.sets ?? DEFAULT_STRENGTH_SETS;
+    const volumeFactor = strengthVolumeFactor(sets, exercise.setReductionPercent);
+    let weight = calculateWeight(exercise.target, row.reps, row.rpe, exercise.step, exercise.weighted ? bodyWeight : 0, sets, exercise.setReductionPercent);
     const previous = previousByReps.get(row.reps);
-    if (previous?.week === row.week - 1 && Math.abs(previous.weight - weight) < 1e-8) {
+    if (volumeFactor === 1 && previous?.week === row.week - 1 && previous.volumeFactor === 1 && Math.abs(previous.weight - weight) < 1e-8) {
       // Prefer the RPE's direction when rounding produces a duplicate. At zero,
       // the only available alternative is one positive increment.
+      // At 0% reduction preserve legacy rounding regardless of set counts.
+      // Skip this increment only when a volume reduction is actually applied.
       const direction = row.rpe < previous.rpe && weight >= exercise.step ? -1 : 1;
       weight = Number((weight + direction * exercise.step).toFixed(8));
     }
     planned.set(row.id, weight);
-    previousByReps.set(row.reps, { week: row.week, rpe: row.rpe, weight });
+    previousByReps.set(row.reps, { week: row.week, rpe: row.rpe, weight, volumeFactor });
   }
   return exercise.prescriptions.map(row => ({ ...row, weight: planned.get(row.id)! }));
 }
@@ -105,6 +125,8 @@ export function planStrengthLoads(exercise: StrengthExercise, bodyWeight = 0): S
 export function createStrengthBlock(targets: Record<string, number>, bodyWeight: number, options: {
   weekRpes?: number[];
   exerciseIds?: StrengthExerciseId[];
+  setsByExercise?: Record<string, number | StrengthSetsByReps>;
+  setReductionPercent?: number;
 } = {}): StrengthBlock {
   const weekRpes = options.weekRpes ?? WEEK_RPES;
   const exerciseIds = options.exerciseIds ?? DEFAULT_STRENGTH_EXERCISES;
@@ -118,11 +140,13 @@ export function createStrengthBlock(targets: Record<string, number>, bodyWeight:
     ...(needsBodyWeight ? { bodyWeight } : {}),
     weekRpes: [...weekRpes],
     exercises: exercises.map(exercise => {
+      const configuredSets = options.setsByExercise?.[exercise.id];
       const next: StrengthExercise = {
         ...exercise,
+        setReductionPercent: options.setReductionPercent ?? DEFAULT_SET_REDUCTION_PERCENT,
         target: targets[exercise.id],
-        prescriptions: weekRpes.flatMap((rpe, index) => [5, 3].map(reps => ({
-          id: crypto.randomUUID(), week: index + 1, reps, rpe, weight: 0, performances: [],
+        prescriptions: weekRpes.flatMap((rpe, index) => ([5, 3] as const).map(reps => ({
+          id: crypto.randomUUID(), week: index + 1, reps, rpe, sets: typeof configuredSets === 'number' ? configuredSets : configuredSets?.[reps] ?? DEFAULT_STRENGTH_SETS, weight: 0, performances: [],
         }))),
       };
       return { ...next, prescriptions: planStrengthLoads(next, bodyWeight) };
@@ -130,7 +154,7 @@ export function createStrengthBlock(targets: Record<string, number>, bodyWeight:
   };
 }
 
-export function updateStrengthLoads(block: StrengthBlock, exerciseId: string, target: number, bodyWeight: number | undefined): StrengthBlock {
+export function updateStrengthLoads(block: StrengthBlock, exerciseId: string, target: number, bodyWeight: number | undefined, setReductionPercent?: number): StrengthBlock {
   if (bodyWeight !== undefined && (!Number.isFinite(bodyWeight) || bodyWeight <= 0)) throw new Error('Poids du corps invalide.');
   const bodyWeightChanged = bodyWeight !== undefined && bodyWeight !== block.bodyWeight;
   return {
@@ -139,11 +163,27 @@ export function updateStrengthLoads(block: StrengthBlock, exerciseId: string, ta
     exercises: block.exercises.map(exercise => {
       if (exercise.id !== exerciseId && !(bodyWeightChanged && exercise.weighted)) return exercise;
       const nextTarget = exercise.id === exerciseId ? target : exercise.target;
+      const next = { ...exercise, target: nextTarget, ...(exercise.id === exerciseId && setReductionPercent !== undefined ? { setReductionPercent } : {}) };
+      const planned = planStrengthLoads(next, bodyWeight ?? block.bodyWeight ?? 0);
       return {
-        ...exercise,
-        target: nextTarget,
-        prescriptions: planStrengthLoads({ ...exercise, target: nextTarget }, bodyWeight ?? block.bodyWeight ?? 0),
+        ...next,
+        // A recalculation changes only weights, keeping each prescription's
+        // chosen set count and recorded performances from the current block.
+        prescriptions: exercise.prescriptions.map((row, index) => ({ ...row, weight: planned[index].weight })),
       };
+    }),
+  };
+}
+
+export function updateStrengthSets(block: StrengthBlock, exerciseId: string, prescriptionId: string, sets: number): StrengthBlock {
+  strengthVolumeFactor(sets);
+  return {
+    ...block,
+    exercises: block.exercises.map(exercise => {
+      if (exercise.id !== exerciseId) return exercise;
+      const next = { ...exercise, prescriptions: exercise.prescriptions.map(row => row.id === prescriptionId ? { ...row, sets } : row) };
+      const planned = planStrengthLoads(next, block.bodyWeight ?? 0);
+      return { ...next, prescriptions: next.prescriptions.map(row => row.id === prescriptionId ? planned.find(item => item.id === row.id)! : row) };
     }),
   };
 }

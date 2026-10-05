@@ -22,7 +22,15 @@ Ouvrir **Force**, saisir les 1RM visés et le poids du corps, puis générer un 
 
 Les charges prévues peuvent être ajustées. Ajouter les séries réalisées (charge, reps, RPE ressenti et note), puis cliquer sur **Enregistrer le bloc**. La date est automatique. Créer un nouveau bloc conserve les précédents.
 
+Le **nombre de séries** se choisit par exercice à la création, séparément pour le **×3** et le **×5** (3 séries par défaut pour chacun). Ces valeurs initialisent les objectifs correspondants de toutes les semaines et restent modifiables par objectif hebdomadaire dans le bloc. Le récapitulatif indique le format séries × répétitions et chaque objectif affiche les séries réalisées / prévues. Modifier le nombre de séries recalcule sa charge sans effacer les performances ni les autres charges manuelles. Recalculer les charges conserve les nombres de séries choisis.
+
+La correction du volume est une estimation réglable, avec une base de 3 séries : chaque série supplémentaire retire par défaut 1 % de la charge théorique avant arrondi (5 séries : −2 %). Avec 1 ou 2 séries, aucune hausse automatique. Pour les mouvements lestés, la correction s'applique à la charge totale, puis le poids du corps est soustrait. Le réglage **Réduction par série au-delà de 3 (%)** accepte de 0 à 5 % par exercice, via **Recalculer les charges**. Ce coefficient est un choix de programmation, pas une formule garantissant le RPE ; il est à ajuster selon les performances et le ressenti. Les anciens blocs utilisent 3 séries et gardent leurs charges jusqu'à modification ou recalcul. Au-delà de 3 séries, l'arrondi peut donner la même charge sur plusieurs semaines afin de préserver la réduction.
+
+À **0 % de réduction**, les charges et les ajustements d'arrondi suivent exactement le calcul d'origine, quel que soit le nombre de séries choisi, y compris s'il varie entre semaines. Seule une réduction de charge effectivement active suspend l'ajustement des doublons. Pour rétablir les charges d'un bloc déjà calculé, régler la réduction à 0 puis cliquer sur **Recalculer les charges** ; les nombres de séries restent conservés.
+
 Les blocs sont stockés dans la table Supabase `workouts`, dans le JSON `exercises[].strengthBlock`. Ils utilisent les permissions du compte existant et sont exclus de la liste des séances ordinaires. Aucune migration SQL n’est nécessaire.
+
+Les séances ordinaires s'affichent par dernière modification enregistrée, y compris après rechargement et lors d'une édition rapide des séries. La date de modification est conservée dans `exercises[].workoutUpdatedAt`, dans le JSON existant, sans migration SQL. Les séances sans cette information utilisent leur date de création, puis leur date d'entraînement.
 
 Vérification locale : `node --test tests/strength.test.mjs`, puis `npm.cmd run build`.
 

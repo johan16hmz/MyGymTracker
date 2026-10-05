@@ -2,8 +2,8 @@ import { t, useLanguage, locale, useWeightUnit } from '../i18n';
 import type { WeightUnit } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
 import type { Workout } from '../types';
-import { createStrengthBlock, DEFAULT_STRENGTH_EXERCISES, getCurrentStrengthBlockIndex, getStrengthWeeks, MAX_BLOCK_WEEKS, nextCurrentStrengthRank, planStrengthLoads, RPE_TABLE, STRENGTH_EXERCISES, updateStrengthLoads, WEEK_RPES } from '../strength';
-import type { StrengthBlock, StrengthExercise, StrengthExerciseId, StrengthPrescription, StrengthPerformance } from '../strength';
+import { createStrengthBlock, DEFAULT_SET_REDUCTION_PERCENT, DEFAULT_STRENGTH_SETS, DEFAULT_STRENGTH_EXERCISES, getCurrentStrengthBlockIndex, getStrengthWeeks, MAX_BLOCK_WEEKS, MAX_STRENGTH_SETS, nextCurrentStrengthRank, planStrengthLoads, RPE_TABLE, STRENGTH_EXERCISES, strengthVolumeFactor, updateStrengthLoads, updateStrengthSets, WEEK_RPES } from '../strength';
+import type { StrengthBlock, StrengthExercise, StrengthExerciseId, StrengthPrescription, StrengthPerformance, StrengthSetsByReps } from '../strength';
 import { getStrengthBlock, saveStrengthBlock } from '../strengthService';
 import { convertWeightInput, parseDecimalInput, toDisplayWeight, toStoredWeight } from '../weightUnits';
 
@@ -27,7 +27,7 @@ function StrengthSummaryTable({ block, caption, unit }: { block: StrengthBlock; 
     <thead><tr><th scope="col">{t("Exercice")}</th>{weeks.map(week => <th key={week} scope="col">{t("Sem.")} {week}<small>RPE {n(block.exercises.flatMap(ex => ex.prescriptions).find(row => row.week === week)?.rpe ?? 0)}</small></th>)}</tr></thead>
     <tbody>{block.exercises.flatMap(ex => [5, 3].map(reps => <tr key={`${ex.id}-${reps}`}><th scope="row">{t(ex.name)} ×{reps}</th>{weeks.map(week => {
       const row = ex.prescriptions.find(item => item.week === week && item.reps === reps);
-      return <td key={week}>{row ? n(toDisplayWeight(row.weight, unit)) : '—'}</td>;
+      return <td key={week}>{row ? <>{n(toDisplayWeight(row.weight, unit))}<small>{row.sets ?? DEFAULT_STRENGTH_SETS} × {row.reps}</small></> : '—'}</td>;
     })}</tr>))}</tbody>
   </table></div>;
 }
@@ -76,13 +76,14 @@ function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
   exercise: StrengthExercise;
   bodyWeight?: number;
   saving: boolean;
-  onApply: (target: number, bodyWeight?: number) => void;
+  onApply: (target: number, bodyWeight?: number, setReductionPercent?: number) => void;
 }) {
   useLanguage();
   const weightUnit = useWeightUnit();
   const [inputUnit, setInputUnit] = useState(weightUnit);
   const [target, setTarget] = useState(String(toDisplayWeight(exercise.target, weightUnit)));
   const [bodyWeightInput, setBodyWeightInput] = useState(bodyWeight === undefined ? '' : String(toDisplayWeight(bodyWeight, weightUnit)));
+  const [reductionInput, setReductionInput] = useState(String(exercise.setReductionPercent ?? DEFAULT_SET_REDUCTION_PERCENT));
   useEffect(() => {
     if (weightUnit === inputUnit) return;
     setTarget(value => convertWeightInput(value, inputUnit, weightUnit));
@@ -92,12 +93,13 @@ function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
   const recalculated = planStrengthLoads(exercise, bodyWeight ?? 0);
   const parsedTarget = parseDecimalInput(target);
   const parsedBodyWeight = parseDecimalInput(bodyWeightInput);
-  const validInputs = Number.isFinite(parsedTarget) && parsedTarget >= (exercise.weighted ? 0 : toDisplayWeight(exercise.step, inputUnit)) && (!exercise.weighted || (Number.isFinite(parsedBodyWeight) && parsedBodyWeight >= toDisplayWeight(1, inputUnit)));
-  const changed = parsedTarget !== toDisplayWeight(exercise.target, inputUnit) || (exercise.weighted && parsedBodyWeight !== (bodyWeight === undefined ? undefined : toDisplayWeight(bodyWeight, inputUnit))) || recalculated.some((row, index) => row.weight !== exercise.prescriptions[index].weight);
+  const reductionPercent = parseDecimalInput(reductionInput);
+  const validInputs = Number.isFinite(reductionPercent) && reductionPercent >= 0 && reductionPercent <= 5 && Number.isFinite(parsedTarget) && parsedTarget >= (exercise.weighted ? 0 : toDisplayWeight(exercise.step, inputUnit)) && (!exercise.weighted || (Number.isFinite(parsedBodyWeight) && parsedBodyWeight >= toDisplayWeight(1, inputUnit)));
+  const changed = reductionPercent !== (exercise.setReductionPercent ?? DEFAULT_SET_REDUCTION_PERCENT) || parsedTarget !== toDisplayWeight(exercise.target, inputUnit) || (exercise.weighted && parsedBodyWeight !== (bodyWeight === undefined ? undefined : toDisplayWeight(bodyWeight, inputUnit))) || recalculated.some((row, index) => row.weight !== exercise.prescriptions[index].weight);
   return <form className="force-load-editor" onSubmit={event => {
     event.preventDefault();
     if (!changed || !validInputs) return;
-    onApply(toStoredWeight(parsedTarget, inputUnit), exercise.weighted ? toStoredWeight(parsedBodyWeight, inputUnit) : undefined);
+    onApply(toStoredWeight(parsedTarget, inputUnit), exercise.weighted ? toStoredWeight(parsedBodyWeight, inputUnit) : undefined, reductionPercent);
   }}>
     <label>{t("1RM visé")} ({exercise.weighted ? t("lest ajouté") : t("charge totale")}, {inputUnit})
       <input type="text" inputMode="decimal" pattern={decimalPattern} required disabled={saving} value={target} onChange={event => setTarget(event.target.value)} />
@@ -105,6 +107,10 @@ function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
     {exercise.weighted && <label>{t("Poids du corps")} ({inputUnit})
       <input type="text" inputMode="decimal" pattern={decimalPattern} required disabled={saving} value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
     </label>}
+    <label>{t("Réduction par série au-delà de 3 (%)")}
+      <input type="text" inputMode="decimal" pattern={decimalPattern} required disabled={saving} value={reductionInput} onChange={event => setReductionInput(event.target.value)} />
+      <small>{t("Réglable de 0 à 5 % selon ton ressenti.")}</small>
+    </label>
     <button className="btn btn-secondary btn-small" type="submit" disabled={!changed || !validInputs || saving}>{t("Recalculer les charges")}</button>
     <small>{exercise.weighted ? t("Le poids du corps est commun aux dips, tractions et muscle-ups. Les charges prévues sont recalculées ; les performances enregistrées restent intactes.") : t("Les charges prévues de cet exercice sont recalculées ; les performances enregistrées restent intactes.")}</small>
   </form>;
@@ -127,6 +133,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   const [targets, setTargets] = useState<Record<string, string>>(emptyTargets);
   const [entryUnit, setEntryUnit] = useState(weightUnit);
   const [exerciseIds, setExerciseIds] = useState<StrengthExerciseId[]>([...DEFAULT_STRENGTH_EXERCISES]);
+  const [setsByExercise, setSetsByExercise] = useState<Record<string, StrengthSetsByReps>>({});
   const [weekRpes, setWeekRpes] = useState<number[]>([...WEEK_RPES]);
   const [bodyWeightInput, setBodyWeightInput] = useState('');
   const [name, setName] = useState(`${t('Bloc force')} ${records.length + 1}`);
@@ -147,9 +154,9 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
     const parsedBodyWeight = parseDecimalInput(bodyWeightInput);
     if (selectedExercises.some(ex => !Number.isFinite(parsedTargets[ex.id]) || parsedTargets[ex.id] < (ex.weighted ? 0 : toDisplayWeight(ex.step, entryUnit))) || (needsBodyWeight && (!Number.isFinite(parsedBodyWeight) || parsedBodyWeight < toDisplayWeight(1, entryUnit)))) return undefined;
     try {
-      return createStrengthBlock(Object.fromEntries(selectedExercises.map(ex => [ex.id, toStoredWeight(parsedTargets[ex.id], entryUnit)])), needsBodyWeight ? toStoredWeight(parsedBodyWeight, entryUnit) : 0, { exerciseIds, weekRpes });
+      return createStrengthBlock(Object.fromEntries(selectedExercises.map(ex => [ex.id, toStoredWeight(parsedTargets[ex.id], entryUnit)])), needsBodyWeight ? toStoredWeight(parsedBodyWeight, entryUnit) : 0, { exerciseIds, weekRpes, setsByExercise });
     } catch { return undefined; }
-  }, [targets, bodyWeightInput, exerciseIds, weekRpes, needsBodyWeight, entryUnit]);
+  }, [targets, bodyWeightInput, exerciseIds, weekRpes, setsByExercise, needsBodyWeight, entryUnit]);
 
   useEffect(() => {
     onPendingChange(dirty || saving);
@@ -186,7 +193,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
     <div className="force-heading">
       <div><p className="force-eyebrow">POWERLIFTING & STREETLIFTING</p><h2>{t("Force")}</h2><p>{t("Ton cycle. Tes exercices. Tes performances.")}</p></div>
       {!creating && <button className="btn btn-primary" disabled={dirty || saving} onClick={() => {
-        setName(`${t('Bloc force')} ${records.length + 1}`); setTargets(emptyTargets()); setCreating(true); setMessage(''); setError('');
+        setName(`${t('Bloc force')} ${records.length + 1}`); setTargets(emptyTargets()); setSetsByExercise({}); setCreating(true); setMessage(''); setError('');
       }}>{t("+ Nouveau bloc")}</button>}
     </div>
     {error && <p className="force-error" role="alert">{error}</p>}
@@ -215,13 +222,18 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
       {needsBodyWeight && <label className="force-bodyweight">{t("Poids du corps")} ({entryUnit})<input type="text" inputMode="decimal" pattern={decimalPattern} required value={bodyWeightInput} onChange={event => setBodyWeightInput(event.target.value)} />
         <small>{t("Utilisé pour calculer le lest des dips, tractions et muscle-ups.")}</small>
       </label>}
-      <div className="force-targets">{STRENGTH_EXERCISES.filter(ex => exerciseIds.includes(ex.id)).map(ex => <label key={ex.id}>
-        <strong>{t(ex.name)}</strong><span>{t("1RM visé ·")} {ex.weighted ? t("lest ajouté") : t("charge totale")} ({entryUnit})</span>
+      <div className="force-targets">{STRENGTH_EXERCISES.filter(ex => exerciseIds.includes(ex.id)).map(ex => <div key={ex.id}>
+        <strong>{t(ex.name)}</strong><label><span>{t("1RM visé ·")} {ex.weighted ? t("lest ajouté") : t("charge totale")} ({entryUnit})</span>
         <input type="text" inputMode="decimal" pattern={decimalPattern} required value={targets[ex.id]} onChange={event => setTargets({ ...targets, [ex.id]: event.target.value })} />
-        <small>{t("Arrondi au plus proche :")} {weightText(ex.step, entryUnit)}</small>
-      </label>)}</div>
+        <small>{t("Arrondi au plus proche :")} {weightText(ex.step, entryUnit)}</small></label>
+        {([3, 5] as const).map(reps => <label key={reps}>{t(reps === 3 ? 'Séries en ×3' : 'Séries en ×5')}<select required aria-label={`${t('Nombre de séries')} · ${t(ex.name)} · ${reps} reps`} value={setsByExercise[ex.id]?.[reps] ?? DEFAULT_STRENGTH_SETS} onChange={event => {
+          const sets = Number(event.target.value);
+          setSetsByExercise(previous => ({ ...previous, [ex.id]: { ...previous[ex.id], [reps]: sets } }));
+        }}>{Array.from({ length: MAX_STRENGTH_SETS }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>)}
+      </div>)}</div>
+      <p className="force-help">{t("Base : 3 séries. Chaque série supplémentaire réduit la charge calculée de 1 % avant arrondi (5 séries : −2 %). Le RPE reste une cible estimée ; ajuste selon ton ressenti. Avec 1 ou 2 séries, la charge reste identique. La réduction est réglable par exercice après création.")}</p>
       {needsBodyWeight && <p className="force-help">{t("Pour les dips, tractions et muscle-ups, le calcul porte sur le poids du corps + le lest. Les charges prévues correspondent uniquement au lest ajouté.")} ({t("minimum")} 0 {entryUnit})</p>}
-      <p className="force-help">{t("Si deux semaines consécutives donnent la même charge en ×3 ou en ×5, l’arrondi est ajusté d’un pas (+ ou −). Les charges restent modifiables.")}</p>
+      <p className="force-help">{t("Sans réduction de charge, les arrondis suivent le calcul d’origine, quel que soit le nombre de séries. Avec une réduction active, des semaines peuvent garder la même charge pour préserver cette réduction. Les charges restent modifiables.")}</p>
       {preview && <StrengthSummaryTable block={preview} caption={t("Aperçu des charges")} unit={entryUnit} />}
       </fieldset>
       <div className="force-buttons"><button type="submit" className="btn btn-primary" disabled={saving || !name.trim() || !preview}>{saving ? t("Enregistrement…") : t("Générer et enregistrer le bloc")}</button>
@@ -248,9 +260,9 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
       </button>)}</div>
       <div className="force-exercise-heading"><h3>{t(exercise.name)}</h3><span>{exercise.weighted ? t("Lest ajouté") : t("Charge totale")} {t("· pas de")} {weightText(exercise.step, weightUnit)}</span></div>
       {exercise.weighted && block.bodyWeight === undefined && <p className="force-error" role="status">{t("Ce bloc utilise encore l’ancien calcul. Renseigne ton poids du corps puis recalcule les charges.")}</p>}
-      <StrengthLoadEditor key={`${selected?.id}-${exercise.id}-${exercise.target}-${block.bodyWeight}`} exercise={exercise} bodyWeight={block.bodyWeight} saving={saving} onApply={(target, bodyWeight) => {
+      <StrengthLoadEditor key={`${selected?.id}-${exercise.id}-${exercise.target}-${block.bodyWeight}-${exercise.setReductionPercent}`} exercise={exercise} bodyWeight={block.bodyWeight} saving={saving} onApply={(target, bodyWeight, reductionPercent) => {
         try {
-          setBlock(updateStrengthLoads(block, exercise.id, target, bodyWeight));
+          setBlock(previous => previous && updateStrengthLoads(previous, exercise.id, target, bodyWeight, reductionPercent));
           setDirty(true); setMessage(''); setError('');
         } catch (err) { setError(err instanceof Error ? t(err.message) : t('Vérifie les informations saisies.')); }
       }} />
@@ -259,7 +271,13 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
         <div className="force-weeks">{weeks.map(week => <section className="force-week" data-active={activeWeek === week} key={week}>
           <header><h4>{t("Semaine")} {week}</h4><span>RPE {n(exercise.prescriptions.find(row => row.week === week)?.rpe ?? 0)}</span></header>
           {exercise.prescriptions.filter(row => row.week === week).map(row => <div className="force-prescription" key={row.id}>
-            <div className="force-prescription-heading"><strong>× {row.reps} reps</strong><small>{n(RPE_TABLE.find(r => r.rpe === row.rpe)!.percentages[row.reps - 1])} {t("% du 1RM")}</small></div>
+            <div className="force-prescription-heading"><strong>{row.sets ?? DEFAULT_STRENGTH_SETS} × {row.reps} reps</strong><small>{n(Number((RPE_TABLE.find(r => r.rpe === row.rpe)!.percentages[row.reps - 1] * strengthVolumeFactor(row.sets, exercise.setReductionPercent)).toFixed(2)))} {t("% du 1RM")}</small></div>
+            <label>{t("Nombre de séries")}<select aria-label={`${t('Nombre de séries')} · ${t(exercise.name)} · ${t('Semaine')} ${row.week} · ${row.reps} reps`} value={row.sets ?? DEFAULT_STRENGTH_SETS} onChange={event => {
+              const sets = Number(event.target.value);
+              setBlock(previous => previous && updateStrengthSets(previous, exercise.id, row.id, sets));
+              setDirty(true); setMessage('');
+            }}>{Array.from({ length: MAX_STRENGTH_SETS }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>
+            <small className="force-volume-help">{t("Charge recalculée automatiquement. Base : 3 séries ; réduction par série supplémentaire :")} {n(exercise.setReductionPercent ?? DEFAULT_SET_REDUCTION_PERCENT)} %. {t("Estimation à ajuster selon le RPE ressenti.")}</small>
             <label>{t("Charge prévue")} ({weightUnit})<input key={`${row.weight}-${weightUnit}`} aria-label={`${t("Charge prévue")} ${t(exercise.name)} ${t("semaine")} ${row.week}, ${row.reps} reps (${weightUnit})`} type="text" inputMode="decimal" pattern={decimalPattern} defaultValue={toDisplayWeight(row.weight, weightUnit)} onBlur={event => {
               const parsed = parseDecimalInput(event.target.value);
               if (Number.isFinite(parsed) && parsed >= 0) {
@@ -272,6 +290,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
             {row.weight !== plannedRows.find(planned => planned.id === row.id)?.weight && <button className="force-link" onClick={() => {
               updatePrescription(row.id, { weight: plannedRows.find(planned => planned.id === row.id)!.weight });
             }}>{t("Rétablir le calcul RPE")}</button>}
+            <p className="force-help">{row.performances.length} / {row.sets ?? DEFAULT_STRENGTH_SETS} {t("séries enregistrées")}</p>
             {row.performances.map((perf, perfIndex) => <div className="force-result" key={perfIndex}>
               <strong>{weightText(perf.weight, weightUnit)} × {perf.reps} · RPE {n(perf.rpe)}</strong>
               <small>{new Date(perf.date).toLocaleDateString(locale())}{perf.note && ` · ${perf.note}`}</small>

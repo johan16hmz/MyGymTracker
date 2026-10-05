@@ -91,8 +91,8 @@ function App() {
 
   const handleUpdateWorkout = async (workout: Workout) => {
     const result = await updateWorkout(workout.id, workout);
-    if (result.success) {
-      setWorkouts(prev => prev.map(w => w.id === workout.id ? workout : w));
+    if (result.success && 'data' in result && result.data) {
+      setWorkouts(prev => prev.map(w => w.id === workout.id ? result.data : w));
     }
   };
 

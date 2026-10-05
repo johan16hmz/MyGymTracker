@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { Workout, Exercise } from '../types';
 import { Icon } from './Icon';
 import { DecimalInput } from './DecimalInput';
+import { sortWorkoutsByLastModified, stampWorkoutExercises } from '../workoutOrder';
 
 interface WorkoutListProps {
   workouts: Workout[];
@@ -28,7 +29,7 @@ export function WorkoutList({
   const [editValue, setEditValue] = useState<string>('');
   const [localWorkouts, setLocalWorkouts] = useState<Workout[]>(workouts);
   const [query, setQuery] = useState('');
-  const visibleWorkouts = localWorkouts.filter(workout => workout.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  const visibleWorkouts = sortWorkoutsByLastModified(localWorkouts).filter(workout => workout.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const totalSets = workouts.reduce((total, workout) => total + workout.exercises.reduce((sum, ex) => sum + ex.sets.length, 0), 0);
   const days = new Set(workouts.map(workout => workout.date.slice(0, 10))).size;
 
@@ -95,7 +96,7 @@ export function WorkoutList({
       };
     });
 
-    const updatedWorkout = { ...workout, exercises: updatedExercises };
+    const updatedWorkout = { ...workout, exercises: stampWorkoutExercises(updatedExercises) };
     setLocalWorkouts(prev => prev.map(w => w.id === workout.id ? updatedWorkout : w));
     
     if (onUpdate) {

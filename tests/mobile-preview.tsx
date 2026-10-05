@@ -8,9 +8,9 @@ import { Login } from '../src/components/Login';
 import { Strength } from '../src/components/Strength';
 import { TemplateSelector } from '../src/components/TemplateSelector';
 import { createStrengthBlock } from '../src/strength';
-import '../src/App.css';
-import '../src/index.css';
-import '../src/mobile.css';
+import { Icon } from '../src/components/Icon';
+import { Settings } from '../src/components/Settings';
+import '../src/ui.css';
 
 const noop = () => {};
 const workout = { id: 'fixture', name: 'Séance test avec un nom particulièrement long', date: '2026-09-08', exercises: [
@@ -20,14 +20,19 @@ const force = { ...workout, exercises: [{ id: 'force', name: 'Bloc force', sets:
 const view = new URLSearchParams(location.search).get('view');
 const screens = {
   list: <WorkoutList workouts={[workout]} onNew={noop} onView={noop} onEdit={noop} onDelete={noop} />,
-  edit: <WorkoutForm workout={workout} onSave={noop} onCancel={noop} />,
-  create: <WorkoutForm workout={null} onSave={noop} onCancel={noop} />,
+  edit: <WorkoutForm userId="fixture" workout={workout} onSave={async () => true} onCancel={noop} />,
+  create: <WorkoutForm userId="fixture" workout={null} onSave={async () => true} onCancel={noop} />,
   detail: <WorkoutDetail workout={workout} onEdit={noop} onDelete={noop} onBack={noop} />,
   template: <TemplateSelector onSelectTemplate={noop} />,
   force: <Strength userId="fixture" workouts={[force]} onSaved={noop} onPendingChange={noop} />,
   forceCreate: <Strength userId="fixture" workouts={[]} onSaved={noop} onPendingChange={noop} />,
 };
 createRoot(document.getElementById('app')!).render(view === 'login' ? <Login onLogin={noop} /> : <div className="app">
-  <header className="app-header"><div className="header-top"><h1>🏋️ MyGymTracker</h1><div className="header-user"><button className="btn btn-secondary btn-small">Déconnexion</button></div></div><p className="tagline">Suivi d'entraînement intelligent</p><nav className="app-sections"><button className="btn btn-primary">Séances</button><button className="btn btn-secondary">Force</button></nav></header>
-  <main className="app-main">{screens[view as keyof typeof screens] ?? screens.list}</main>
+  <header className="app-header">
+    <button className="brand"><span className="brand-mark"><img src="/brand-icon.svg" alt="" /></span><span>MyGym<span className="brand-light">Tracker</span><small>TRAINING JOURNAL</small></span></button>
+    <p className="nav-caption">TON ESPACE</p>
+    <nav className="app-sections"><button className={`nav-item ${view?.startsWith('force') ? '' : 'active'}`}><Icon name="workout" />Séances</button><button className={`nav-item ${view?.startsWith('force') ? 'active' : ''}`}><Icon name="strength" />Force</button><button className="nav-item"><Icon name="nutrition" />Nutrition</button></nav>
+    <div className="header-user"><Settings /><button className="logout-button"><Icon name="logout" />Déconnexion</button></div>
+  </header>
+  <main className="app-main"><div className="workspace-topbar">MYGYMTRACKER / {view?.startsWith('force') ? 'Force' : 'Séances'}</div>{screens[view as keyof typeof screens] ?? screens.list}</main>
 </div>);

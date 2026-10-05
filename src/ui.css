@@ -224,7 +224,8 @@ small { font-size: .78rem; }
 .force-page label { display: flex; flex-direction: column; gap: 8px; font-size: .78rem; font-weight: 550; }
 .force-page small { display: block; font-size: .7rem; color: var(--text-muted); font-weight: 400; }
 .force-targets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 24px 0; }
-.force-targets label { border: 1px solid var(--border); padding: 20px; border-radius: 14px; background: var(--bg); }
+.force-targets > div { min-width: 0; border: 1px solid var(--border); padding: 20px; border-radius: 14px; background: var(--bg); }
+.force-targets label + label { margin-top: 14px; }
 .force-targets strong { font-size: 1.1rem; }.force-targets label > span { font-size: .65rem; color: var(--text-muted); }
 .force-targets input { font-size: 1.9rem; font-weight: 600; letter-spacing: -.06em; background: var(--surface); padding: 10px; margin: 8px 0; }
 .force-bodyweight { max-width: 260px; margin-top: 18px; }
@@ -250,6 +251,7 @@ small { font-size: .78rem; }
 .force-prescription-heading { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 20px; }
 .force-prescription-heading strong { font-size: 1.4rem; font-weight: 550; letter-spacing: -.04em; }
 .force-prescription > label { margin-bottom: 14px; }
+.force-volume-help { display: block; color: var(--text-muted); margin-bottom: 16px; }
 .force-prescription > label input { font-size: 1.6rem; font-weight: 600; }
 .force-performance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--border); }
 .force-note, .force-performance > button { grid-column: 1 / -1; }
@@ -315,11 +317,15 @@ small { font-size: .78rem; }
   .exercise-block, .exercise-detail { padding: 16px; border-radius: 14px; }.exercise-header { flex-wrap: wrap; gap: 8px; }
   .workout-form .exercise-header { display: grid; grid-template-columns: 30px minmax(0,1fr) 40px; grid-template-areas: 'number name remove' '. order order'; }
   .exercise-number { grid-area: number; width: 30px; height: 30px; }.exercise-name-input { grid-area: name; }.exercise-order-controls { grid-area: order; justify-content: flex-end; }.exercise-header > .btn-danger { grid-area: remove; }
+  .workout-form .exercise-block { min-width: 0; }
+  .workout-form .exercise-header > * { min-width: 0; }
+  .workout-form .exercise-header { grid-template-columns: 30px minmax(0,1fr) 44px; }
+  .workout-form .exercise-name-input input { font-size: 16px; }
   .btn-icon { min-height: 44px; }.exercise-name-input input { padding: 10px; }.sets-header, .set-row { grid-template-columns: 24px minmax(0,1fr) minmax(0,1fr) 36px; gap: 6px; }.sets-header { font-size: .55rem; letter-spacing: 0; }.set-row input { padding: 10px 4px; }.set-row .btn-icon { width: 36px; }
   .template-section { padding: 18px; gap: 12px; }.template-section .btn { width: 100%; }.empty-exercises { padding: 32px 14px; }
   .sets-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }.stat-card { padding: 18px; }.detail-actions .btn { flex: 1; }
   .templates-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }.template-card { padding: 18px; }.template-emoji { margin-bottom: 24px; }.template-name { font-size: 1.8rem; }.template-count { font-size: .7rem; }.group-header { align-items: center; }.exercise-group { padding: 16px; }.selector-actions { bottom: 88px; }.selector-actions .btn { flex: 1; }
-  .force-heading h2 { font-size: 2.6rem; }.force-panel { padding: 20px 16px; }.force-targets { gap: 10px; }.force-targets label { padding: 14px; }.force-targets input { font-size: 1.7rem; }.force-targets small { font-size: .62rem; }
+  .force-heading h2 { font-size: 2.6rem; }.force-panel { padding: 20px 16px; }.force-targets { gap: 10px; }.force-targets > div { padding: 14px; }.force-targets input { font-size: 1.7rem; }.force-targets small { font-size: .62rem; }
   .force-exercise-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }.force-exercise-tabs button { padding: 14px; }.force-toolbar label { max-width: none; width: 100%; flex: auto; }.force-toolbar > span { font-size: .75rem; }
   .force-weeks { grid-template-columns: 1fr; }.force-week-tabs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; margin-bottom: 14px; }.force-week-tabs button { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 12px 4px; font-size: .75rem; }.force-week-tabs [aria-pressed='true'] { background: var(--primary); color: #233019; border-color: #a6c75b; }
   .force-week[data-active='false'] { display: none; }.force-prescription { padding: 18px; }.force-prescription > .btn { width: 100%; }.force-save { position: static; padding: 18px; gap: 14px; }.force-save .btn { width: 100%; }.force-rpe { padding: 16px 10px; }.force-rpe th:first-child { position: sticky; left: 0; background: var(--surface); }
