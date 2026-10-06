@@ -17,7 +17,7 @@ let authListener;
 globalThis.authRecoveryTestClient = { auth: {
   resetPasswordForEmail: async (...args) => { requests.push(args); return response; },
   updateUser: async payload => { requests.push(payload); return response; },
-  signUp: async () => ({ data: { user: { id: 'test-user' }, session: null }, error: null }),
+  signUp: async payload => { requests.push(payload); return { data: { user: { id: 'test-user' }, session: null }, error: null }; },
   onAuthStateChange: callback => { authListener = callback; return { data: { subscription: { unsubscribe() {} } } }; },
 } };
 globalThis.window = { location: { hostname: 'localhost', origin: 'http://localhost:5173' } };
@@ -31,7 +31,24 @@ test('la récupération depuis localhost redirige vers la production avec le mar
   response = { error: null };
   window.location = { hostname: 'localhost', origin: 'http://localhost:5173' };
   assert.equal((await auth.requestPasswordReset(' alice@example.test ')).success, true);
-  assert.deepEqual(requests[0], ['alice@example.test', { redirectTo: 'https://mygymtracker-five.vercel.app/?auth=recovery' }]);
+  assert.deepEqual(requests[0], ['alice@example.test', { redirectTo: 'https://www.my-gym-tracker.app/?auth=recovery' }]);
+});
+
+test('une inscription locale utilise le domaine officiel pour la confirmation', async () => {
+  requests.length = 0;
+  window.location = { hostname: '127.0.0.1', origin: 'http://127.0.0.1:5173' };
+  await auth.signUp('alice@example.test', 'sample password');
+  assert.equal(requests[0].options.emailRedirectTo, 'https://www.my-gym-tracker.app');
+});
+
+test('la configuration VITE_APP_URL reste prioritaire depuis localhost', async () => {
+  const configuredAuth = await loadModule('../src/authService.ts', source => source
+    .replace("import { supabase } from './supabaseClient';", 'const supabase = globalThis.authRecoveryTestClient;')
+    .replace('import.meta.env.VITE_APP_URL', "'https://configured.example.test'"));
+  requests.length = 0;
+  window.location = { hostname: 'localhost', origin: 'http://localhost:5173' };
+  await configuredAuth.requestPasswordReset('alice@example.test');
+  assert.equal(requests[0][1].redirectTo, 'https://configured.example.test/?auth=recovery');
 });
 
 test('un domaine de production conserve son origine dans le lien', async () => {

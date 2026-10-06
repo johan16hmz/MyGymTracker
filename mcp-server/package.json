@@ -9,7 +9,7 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@supabase/supabase-js": "^2.107.0",
     "dotenv": "^17.2.3",
     "zod": "^3.25.76"

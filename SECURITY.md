@@ -1,5 +1,28 @@
 # Sécurité et préparation du domaine
 
+## Mise à jour du 6 octobre 2026
+
+- Correctifs de dépendances appliqués à l'application et au serveur MCP local :
+  `@modelcontextprotocol/sdk` 1.32.1, `proxy-addr` 2.0.8 et `source-map-js` 1.2.2
+  (ce dernier concerne l'application). Aucun changement majeur forcé.
+- `npm audit` : zéro vulnérabilité connue dans les deux projets après mise à jour.
+  Cela ne constitue pas une garantie d'absence de faille.
+- Le Security Advisor Supabase affiche zéro erreur et conserve l'avertissement
+  « Leaked Password Protection Disabled ». Aucun abonnement Pro activé.
+- Le domaine principal est désormais `https://www.my-gym-tracker.app`.
+  La configuration Site URL et les retours de confirmation/récupération ont été
+  renseignés par Johan ; l'ancien domaine Vercel reste autorisé pendant la transition.
+- L'adresse de secours du code utilise aussi ce domaine, notamment depuis
+  localhost lorsque `VITE_APP_URL` n'est pas définie. La variable reste prioritaire.
+- SMTP personnalisé toujours désactivé lors du contrôle : aucune livraison réelle
+  ni parcours complet avec confirmation email n'est encore validé. Les modèles
+  approuvés restent dans `supabase/email-templates/`, en attente du fournisseur.
+
+Les constats ci-dessous sont ceux du contrôle initial du 30 septembre ; les URL
+et résultats d'audit de cette section historique ne décrivent pas l'état actuel.
+
+## Contrôle initial
+
 Vérification du 30 septembre 2026. Il s'agit d'un contrôle du code, des dépendances,
 de la configuration Supabase et du déploiement, pas d'une certification ni d'un
 test d'intrusion exhaustif. Un résultat d'audit sans alerte ne garantit pas
