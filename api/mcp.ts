@@ -103,12 +103,12 @@ const nutritionProfileSchema = z.object({
   goal: z.enum(['lose', 'maintain', 'gain']), targetKg: z.number().min(25).max(400), age: z.number().int().min(18).max(100),
   heightCm: z.number().min(100).max(250), weightKg: z.number().min(25).max(400),
   activity: z.enum(['low', 'moderate', 'active', 'veryActive']), equationSex: z.enum(['female', 'male']),
-  calorieOverride: z.number().min(1200).max(6000).optional(),
+  calorieOverride: z.number().min(1200).max(6000).optional(), fiberGoal:z.number().min(10).max(100).optional(),stepGoal:z.number().int().min(1000).max(50000).optional(),baselineSteps:z.number().int().min(0).max(50000).optional(),adjustForSteps:z.boolean().optional(),
 });
 const nutritionFoodSchema = z.object({
   name: z.string().trim().min(1).max(150), brand: z.string().max(100).optional(), barcode: z.string().optional(),
-  source: z.enum(['openfoodfacts', 'manual']), unit: z.enum(['g', 'ml']),
-  kcal100: z.number().min(0), protein100: z.number().min(0), carbs100: z.number().min(0), fat100: z.number().min(0),
+  source: z.enum(['openfoodfacts', 'ciqual', 'manual']), unit: z.enum(['g', 'ml']),
+  kcal100: z.number().min(0), protein100: z.number().min(0), carbs100: z.number().min(0), fat100: z.number().min(0), fiber100: z.number().min(0).max(100).optional(),
 });
 const nutritionDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const nutritionMealSchema = z.enum(['breakfast', 'lunch', 'snack', 'dinner']);
@@ -336,9 +336,10 @@ function registerTools(server: McpServer, client: SupabaseClient, user: User) {
 
   server.registerTool('nutrition_save_profile', { description: 'Créer ou modifier le profil Nutrition du compte.', inputSchema: nutritionProfileSchema.shape }, async input => {
     try {
-      const profile = input as NutritionProfile;
-      const estimate = estimateCalories(profile);
       const existing = await nutritionRecord(client, user.id, NUTRITION_PROFILE_NAME);
+      const previous=existing?.exercises.find(exercise=>exercise.nutritionProfile)?.nutritionProfile;
+      const profile={...previous,...Object.fromEntries(Object.entries(input).filter(([,value])=>value!==undefined))} as NutritionProfile;
+      const estimate = estimateCalories(profile);
       await writeNutritionRecord(client, user.id, NUTRITION_PROFILE_NAME, existing?.date ?? new Date().toISOString().slice(0, 10), [{ id: existing?.exercises[0]?.id ?? newId(), name: 'Nutrition profile', sets: [], nutritionProfile: profile }], existing);
       return result({ profile, estimate });
     } catch (error) { return toolError(error); }
@@ -360,7 +361,7 @@ function registerTools(server: McpServer, client: SupabaseClient, user: User) {
       const day: NutritionDay = existing?.exercises.find(exercise => exercise.nutritionDay)?.nutritionDay ?? { date, entries: [] };
       if (entryId && !day.entries.some(entry => entry.id === entryId)) throw new Error('Aliment introuvable dans cette journée.');
       const entry: FoodEntry = { id: entryId ?? newId(), meal, food, quantity, addedAt: day.entries.find(item => item.id === entryId)?.addedAt ?? new Date().toISOString() };
-      const next: NutritionDay = { date, entries: [...day.entries.filter(item => item.id !== entry.id), entry] };
+      const next: NutritionDay = { ...day, date, entries: [...day.entries.filter(item => item.id !== entry.id), entry] };
       await writeNutritionRecord(client, user.id, NUTRITION_DAY_NAME, date, [{ id: existing?.exercises[0]?.id ?? newId(), name: 'Nutrition day', sets: [], nutritionDay: next }], existing);
       return result(entry);
     } catch (error) { return toolError(error); }

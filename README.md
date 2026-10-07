@@ -12,7 +12,7 @@ Application web de suivi d'entraînement en salle de sport. Créez, gérez et an
 - **Liste des séances** — vue carte avec stats, édition en ligne et expansion
 - **Détail d'une séance** — statistiques complètes, grille d'exercices, édition et suppression
 - **Force** — blocs de 4 semaines pour tractions, bench, dips et squat, charges calculées depuis le tableau RPE et historique des performances
-- **Nutrition** — objectif calorique estimé, journal des quatre repas, calories et macronutriments, lecture des codes-barres via Open Food Facts
+- **Nutrition** — journal responsive des quatre repas, recherche par nom ou marque, portions indicatives, calories/macronutriments/fibres, hydratation et scanner de codes-barres
 - **Interface responsive** — adaptée mobile et desktop
 - **Thème sombre** — design dark mode
 
@@ -38,9 +38,13 @@ Vérification locale : `node --test tests/strength.test.mjs`, puis `npm.cmd run 
 
 Ouvrir **Nutrition**, renseigner l’objectif (perte, maintien ou gain), le poids actuel et visé, l’âge, la taille, la formule homme ou femme et la fréquence d’entraînement. L’objectif calorique est une **estimation pour adultes** basée sur l’[équation de Mifflin–St Jeor](https://pubmed.ncbi.nlm.nih.gov/2305711/) et un facteur d’activité approximatif. Pour la perte ou la prise, l’application applique un écart modéré d’environ 10 %, limité à 300 kcal. Pour la perte, elle ne propose pas moins de 1 200 kcal/jour, conformément au [repère du CDC](https://stacks.cdc.gov/view/cdc/146517), et demande un avis professionnel si l’estimation de maintien est déjà trop basse. L’objectif peut être ajusté manuellement. Le poids visé fixe la direction de l’objectif ; aucun délai de progression n’est supposé.
 
-Le journal permet d’ajouter des aliments au petit-déjeuner, déjeuner, en-cas et dîner pour chaque date. Saisir une quantité en g ou ml ; les calories, protéines, glucides et lipides sont recalculés. On peut modifier ou retirer une ligne. La caméra lit les codes-barres EAN/UPC et les QR codes contenant un lien produit Open Food Facts. La saisie manuelle du code et des macros reste disponible si la caméra ou le produit est indisponible. Les valeurs nutritionnelles sont fournies par [Open Food Facts](https://world.openfoodfacts.org/) (ODbL) et doivent être vérifiées sur l’emballage.
+Le journal permet d’ajouter des aliments au petit-déjeuner, déjeuner, en-cas et dîner pour chaque date. La recherche automatique par nom ou marque combine les aliments courants [ANSES-CIQUAL 2025](https://doi.org/10.57745/RDMHWY) et les produits [Open Food Facts](https://world.openfoodfacts.org/) (ODbL). La pertinence et le type du produit priment sur la complétude de sa fiche : un nectar de banane est distingué du fruit frais. Les marques sont affichées et les valeurs absentes doivent être complétées avec l’étiquette, jamais inventées.
 
-Profil et journées sont stockés dans la table Supabase `workouts` avec des marqueurs dédiés dans `exercises`, et exclus de la liste des séances. Ils utilisent les permissions du compte existant ; aucune migration SQL n’est nécessaire. Le proxy `/api/food` ajoute un User-Agent identifiable pour Open Food Facts. En local, Vite fournit le même proxy.
+Les portions usuelles ou celles de l’étiquette sont proposées, sans prescription. Saisir une quantité en g ou ml recalcule les calories, protéines, glucides, lipides et fibres. Les fibres inconnues restent signalées comme manquantes. On peut modifier ou retirer une ligne et suivre l’hydratation. La caméra, après autorisation de l’utilisateur, lit les codes-barres EAN/UPC et les QR codes contenant un lien produit Open Food Facts ; les images restent sur l’appareil. La saisie manuelle du code et des valeurs reste disponible.
+
+Profil et journées sont stockés dans la table Supabase `workouts` avec des marqueurs dédiés dans `exercises`, et exclus de la liste des séances. Ils utilisent les permissions du compte existant ; aucune migration SQL n’est nécessaire pour les repas. Le proxy `/api/food` ajoute un User-Agent identifiable pour Open Food Facts. En local, Vite fournit le même backend.
+
+La réception automatique des pas Apple Santé **reste désactivée** à la demande de Johan. Son activation ultérieure nécessite une migration Supabase approuvée et un Raccourci autorisé sur son iPhone ; un site web ne lit pas directement HealthKit. Voir `supabase/NUTRITION_HEALTH.md`. L’ajustement calorique optionnel ne compte que les pas au-delà du seuil d’activité habituel et reste une estimation.
 
 Vérification locale : `node --test tests/nutrition.test.mjs`, puis `npm.cmd run build`.
 

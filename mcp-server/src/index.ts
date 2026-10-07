@@ -84,8 +84,8 @@ type StrengthBlock = {
   exercises: StrengthExercise[];
 };
 
-type NutritionProfile = { goal: 'lose' | 'maintain' | 'gain'; targetKg: number; age: number; heightCm: number; weightKg: number; activity: 'low' | 'moderate' | 'active' | 'veryActive'; equationSex: 'female' | 'male'; calorieOverride?: number };
-type Food = { name: string; brand?: string; barcode?: string; source: 'openfoodfacts' | 'manual'; unit: 'g' | 'ml'; kcal100: number; protein100: number; carbs100: number; fat100: number };
+type NutritionProfile = { goal: 'lose' | 'maintain' | 'gain'; targetKg: number; age: number; heightCm: number; weightKg: number; activity: 'low' | 'moderate' | 'active' | 'veryActive'; equationSex: 'female' | 'male'; calorieOverride?: number; fiberGoal?:number; stepGoal?:number; baselineSteps?:number; adjustForSteps?:boolean };
+type Food = { name: string; brand?: string; barcode?: string; source: 'openfoodfacts' | 'ciqual' | 'manual'; unit: 'g' | 'ml'; kcal100: number; protein100: number; carbs100: number; fat100: number; fiber100?: number };
 type FoodEntry = { id: string; meal: 'breakfast' | 'lunch' | 'snack' | 'dinner'; food: Food; quantity: number; addedAt: string };
 type NutritionDay = { date: string; entries: FoodEntry[] };
 const NUTRITION_PROFILE_NAME = '__nutrition_profile__';
@@ -169,8 +169,8 @@ async function fetchWorkouts() {
   return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME);
 }
 
-const nutritionProfileSchema = z.object({ goal: z.enum(['lose', 'maintain', 'gain']), targetKg: z.number().min(25).max(400), age: z.number().int().min(18).max(100), heightCm: z.number().min(100).max(250), weightKg: z.number().min(25).max(400), activity: z.enum(['low', 'moderate', 'active', 'veryActive']), equationSex: z.enum(['female', 'male']), calorieOverride: z.number().min(1200).max(6000).optional() });
-const nutritionFoodSchema = z.object({ name: z.string().trim().min(1).max(150), brand: z.string().max(100).optional(), barcode: z.string().optional(), source: z.enum(['openfoodfacts', 'manual']), unit: z.enum(['g', 'ml']), kcal100: z.number().min(0), protein100: z.number().min(0), carbs100: z.number().min(0), fat100: z.number().min(0) });
+const nutritionProfileSchema = z.object({ goal: z.enum(['lose', 'maintain', 'gain']), targetKg: z.number().min(25).max(400), age: z.number().int().min(18).max(100), heightCm: z.number().min(100).max(250), weightKg: z.number().min(25).max(400), activity: z.enum(['low', 'moderate', 'active', 'veryActive']), equationSex: z.enum(['female', 'male']), calorieOverride: z.number().min(1200).max(6000).optional(), fiberGoal:z.number().min(10).max(100).optional(),stepGoal:z.number().int().min(1000).max(50000).optional(),baselineSteps:z.number().int().min(0).max(50000).optional(),adjustForSteps:z.boolean().optional() });
+const nutritionFoodSchema = z.object({ name: z.string().trim().min(1).max(150), brand: z.string().max(100).optional(), barcode: z.string().optional(), source: z.enum(['openfoodfacts', 'ciqual', 'manual']), unit: z.enum(['g', 'ml']), kcal100: z.number().min(0), protein100: z.number().min(0), carbs100: z.number().min(0), fat100: z.number().min(0), fiber100: z.number().min(0).max(100).optional() });
 const nutritionDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const nutritionMealSchema = z.enum(['breakfast', 'lunch', 'snack', 'dinner']);
 
@@ -530,9 +530,10 @@ mcp.registerTool('nutrition_get_profile', { description: 'Lire le profil Nutriti
 
 mcp.registerTool('nutrition_save_profile', { description: 'Créer ou modifier le profil Nutrition du compte.', inputSchema: nutritionProfileSchema.shape }, async input => {
   try {
-    const profile = input as NutritionProfile;
-    const estimate = nutritionEstimate(profile);
     const existing = await nutritionRecord(NUTRITION_PROFILE_NAME);
+    const previous=existing?.exercises.find(exercise=>exercise.nutritionProfile)?.nutritionProfile;
+    const profile={...previous,...Object.fromEntries(Object.entries(input).filter(([,value])=>value!==undefined))} as NutritionProfile;
+    const estimate = nutritionEstimate(profile);
     await writeNutritionRecord(NUTRITION_PROFILE_NAME, existing?.date ?? new Date().toISOString().slice(0, 10), [{ id: existing?.exercises[0]?.id ?? id(), name: 'Nutrition profile', sets: [], nutritionProfile: profile }], existing);
     return result({ profile, estimate });
   } catch (error) { return errorResult(error instanceof Error ? error.message : 'Profil Nutrition non enregistré.'); }
@@ -551,7 +552,7 @@ mcp.registerTool('nutrition_upsert_food', { description: 'Ajouter ou modifier un
     const day: NutritionDay = existing?.exercises.find(exercise => exercise.nutritionDay)?.nutritionDay ?? { date, entries: [] };
     if (entryId && !day.entries.some(entry => entry.id === entryId)) throw new Error('Aliment introuvable dans cette journée.');
     const entry: FoodEntry = { id: entryId ?? id(), meal, food, quantity, addedAt: day.entries.find(item => item.id === entryId)?.addedAt ?? new Date().toISOString() };
-    const next: NutritionDay = { date, entries: [...day.entries.filter(item => item.id !== entry.id), entry] };
+    const next: NutritionDay = { ...day, date, entries: [...day.entries.filter(item => item.id !== entry.id), entry] };
     await writeNutritionRecord(NUTRITION_DAY_NAME, date, [{ id: existing?.exercises[0]?.id ?? id(), name: 'Nutrition day', sets: [], nutritionDay: next }], existing);
     return result(entry);
   } catch (error) { return errorResult(error instanceof Error ? error.message : 'Aliment non enregistré.'); }
@@ -577,7 +578,7 @@ mcp.registerTool('nutrition_lookup_barcode', { description: 'Chercher un aliment
     if (payload.status !== 1 || !payload.product) return result(null);
     const product = payload.product;
     const macros = product.nutriments ?? {};
-    return result({ name: product.product_name_fr || product.product_name, brand: product.brands, barcode: product.code, source: 'openfoodfacts', unit: product.product_quantity_unit === 'ml' ? 'ml' : 'g', kcal100: macros['energy-kcal_100g'] ?? (macros.energy_100g === undefined ? null : macros.energy_100g / 4.184), protein100: macros.proteins_100g ?? null, carbs100: macros.carbohydrates_100g ?? null, fat100: macros.fat_100g ?? null });
+    return result({ name: product.product_name_fr || product.product_name, brand: product.brands, barcode: product.code, source: 'openfoodfacts', unit: product.product_quantity_unit === 'ml' ? 'ml' : 'g', kcal100: macros['energy-kcal_100g'] ?? (macros.energy_100g === undefined ? null : macros.energy_100g / 4.184), protein100: macros.proteins_100g ?? null, carbs100: macros.carbohydrates_100g ?? null, fat100: macros.fat_100g ?? null, fiber100: macros.fiber_100g ?? null });
   } catch (error) { return errorResult(error instanceof Error ? error.message : 'Recherche indisponible.'); }
 });
 

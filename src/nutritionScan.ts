@@ -1,3 +1,32 @@
+function cameraErrorName(error: unknown) {
+  return error && typeof error === 'object' && 'name' in error ? error.name : undefined;
+}
+
+export function foodCameraErrorMessage(error: unknown) {
+  switch (cameraErrorName(error)) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'Accès caméra refusé. Autorise la caméra pour ce site dans ton navigateur, puis réessaie.';
+    case 'NotFoundError':
+      return 'Aucune caméra détectée sur cet appareil. Tu peux saisir le code-barres ci-dessous.';
+    case 'NotReadableError':
+    case 'AbortError':
+      return 'La caméra est occupée ou indisponible. Ferme les autres applications qui l’utilisent, puis réessaie.';
+    default:
+      return 'Caméra indisponible. Réessaie ou saisis le code-barres ci-dessous.';
+  }
+}
+
+export async function requestFoodCamera(devices: Pick<MediaDevices, 'getUserMedia'>) {
+  try {
+    return await devices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+  } catch (error) {
+    // Retry only unsupported constraints, never repeat a denied permission request.
+    if (cameraErrorName(error) !== 'OverconstrainedError') throw error;
+    return devices.getUserMedia({ audio: false, video: true });
+  }
+}
+
 // A scanner can read a barcode directly or a QR containing a product URL / GS1 Digital Link.
 export function foodCodeFromScan(raw: string): string | null {
   const value = raw.trim();
