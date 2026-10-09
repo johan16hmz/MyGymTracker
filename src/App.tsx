@@ -17,6 +17,7 @@ import { listWorkoutDrafts, removeWorkoutDraft } from './workoutDrafts';
 import type { WorkoutDraft } from './workoutDrafts';
 
 const Nutrition = lazy(() => import('./components/Nutrition').then(module => ({ default: module.Nutrition })));
+const Statistics = lazy(() => import('./components/Statistics').then(module => ({ default: module.Statistics })));
 
 function App() {
   useLanguage();
@@ -26,9 +27,10 @@ function App() {
   const [recoveryInvalid, setRecoveryInvalid] = useState(() => hasRecoveryErrorLocation(window.location.href));
   const [userId, setUserId] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'strength' | 'nutrition'>('list');
+  const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail' | 'strength' | 'nutrition' | 'statistics'>('list');
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [strengthPending, setStrengthPending] = useState(false);
+  const [nutritionWeightFocus, setNutritionWeightFocus] = useState(false);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [drafts, setDrafts] = useState<WorkoutDraft[]>([]);
@@ -46,7 +48,7 @@ function App() {
       setAuthReady(true);
       if (event === 'PASSWORD_RECOVERY') { setPasswordRecovery(true); setRecoveryInvalid(false); }
       if (activeUserId.current !== (user?.id ?? null)) {
-        setView('list'); setSelectedWorkout(null); setWorkouts([]); setDrafts([]);
+        setView('list'); setSelectedWorkout(null); setWorkouts([]); setDrafts([]); setNutritionWeightFocus(false);
         setLoadingWorkouts(true); setLoadError('');
       }
       activeUserId.current = user?.id ?? null;
@@ -153,20 +155,27 @@ function App() {
         <button className="brand" onClick={handleBackToList}><span className="brand-mark"><img src="/brand-icon.svg?v=3" alt="" /></span><span>MyGym<span className="brand-light">Tracker</span><small>TRAINING JOURNAL</small></span></button>
         <p className="nav-caption">{t('TON ESPACE')}</p>
         <nav className="app-sections" aria-label="Sections">
-          <button className={`nav-item ${view !== 'strength' && view !== 'nutrition' ? 'active' : ''}`} aria-current={view !== 'strength' && view !== 'nutrition' ? 'page' : undefined} onClick={handleBackToList}><Icon name="workout" />{t("Séances")}<span className="nav-dot" /></button>
+          <button className={`nav-item ${!['strength','nutrition','statistics'].includes(view) ? 'active' : ''}`} aria-current={!['strength','nutrition','statistics'].includes(view) ? 'page' : undefined} onClick={handleBackToList}><Icon name="workout" />{t("Séances")}<span className="nav-dot" /></button>
           <button disabled={savingWorkout} className={`nav-item ${view === 'strength' ? 'active' : ''}`} aria-current={view === 'strength' ? 'page' : undefined} onClick={() => setView('strength')}><Icon name="strength" />{t("Force")}<span className="nav-dot" /></button>
           <button className={`nav-item ${view === 'nutrition' ? 'active' : ''}`} aria-current={view === 'nutrition' ? 'page' : undefined} onClick={() => {
             if (savingWorkout) return;
             if (strengthPending && !confirm(t("Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?"))) return;
+            setNutritionWeightFocus(false);
             setView('nutrition');
           }}><Icon name="nutrition" />Nutrition<span className="nav-dot" /></button>
+          <button className={`nav-item ${view === 'statistics' ? 'active' : ''}`} aria-current={view === 'statistics' ? 'page' : undefined} onClick={() => {
+            if (savingWorkout) return;
+            if (strengthPending && !confirm(t("Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?"))) return;
+            setView('statistics');
+          }}><Icon name="statistics" />{t('Statistiques')}<span className="nav-dot" /></button>
         </nav>
         <div className="sidebar-note"><Icon name="strength" size={28} /><p>{t('La régularité fait la différence.')}</p><span>{t('Une séance à la fois.')}</span></div>
         <div className="header-user"><Settings /><div className="user-profile"><span className="avatar">{currentUser[0].toUpperCase()}</span><span className="username">{currentUser}<small>{t('Mon compte')}</small></span></div><button className="logout-button" onClick={handleLogout}><Icon name="logout" />{t('Déconnexion')}</button></div>
       </header>
 
       <main className="app-main" id="main-content">
-        <div className="workspace-topbar"><span>MYGYMTRACKER <span className="breadcrumb">/ {t(view === 'nutrition' ? 'Nutrition' : view === 'strength' ? 'Force' : 'Séances')}</span></span><span className="workspace-status"><span />{t('Ton espace personnel')}</span></div>
+        <div className="workspace-topbar"><span>MYGYMTRACKER <span className="breadcrumb">/ {t(view === 'statistics' ? 'Statistiques' : view === 'nutrition' ? 'Nutrition' : view === 'strength' ? 'Force' : 'Séances')}</span></span><span className="workspace-status"><span />{t('Ton espace personnel')}</span></div>
+        {view === 'statistics' && userId && <Suspense fallback={<div className="loading-panel" role="status"><span className="loading-spinner"/>{t('Chargement des statistiques…')}</div>}><Statistics key={userId} userId={userId} onNutrition={()=>{setNutritionWeightFocus(true);setView('nutrition');}} onStrength={()=>setView('strength')}/></Suspense>}
         {view === 'list' && userId && drafts.length > 0 && <section className="draft-list" aria-label={t('Brouillons de séances')}>
           <h2>{t('Brouillons de séances')}</h2>
           <p>{t('Tes saisies sont conservées sur cet appareil. Reprends-les pour les enregistrer dans ton compte.')}</p>
@@ -185,7 +194,7 @@ function App() {
             }}>{t('Supprimer')}</button>
           </div>)}
         </section>}
-        {view === 'nutrition' && userId && <Suspense fallback={<div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de ton journal nutrition…')}</div>}><Nutrition userId={userId} /></Suspense>}
+        {view === 'nutrition' && userId && <Suspense fallback={<div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de ton journal nutrition…')}</div>}><Nutrition userId={userId} focusWeight={nutritionWeightFocus} /></Suspense>}
         {(view === 'strength' || view === 'list') && loadingWorkouts && <div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de tes entraînements…')}</div>}
         {(view === 'strength' || view === 'list') && loadError && <p role="alert">{loadError}</p>}
         {view === 'strength' && userId && !loadingWorkouts && !loadError && <Strength key={userId} userId={userId} workouts={workouts} onPendingChange={setStrengthPending} onSaved={saved => {

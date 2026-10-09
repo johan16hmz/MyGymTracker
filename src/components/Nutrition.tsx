@@ -82,7 +82,7 @@ export function ProfileForm({ initial, onSave, onCancel, saving }: {
   </form>;
 }
 
-export function Nutrition({ userId }: { userId: string }) {
+export function Nutrition({ userId, focusWeight = false }: { userId: string; focusWeight?: boolean }) {
   useLanguage();
   const [profile,setProfile]=useState<NutritionProfile>();
   const [profileRecord,setProfileRecord]=useState<Workout>();
@@ -93,6 +93,7 @@ export function Nutrition({ userId }: { userId: string }) {
   const [loadingDay,setLoadingDay]=useState(true);
   const [saving,setSaving]=useState(false);
   const [editingProfile,setEditingProfile]=useState(false);
+  const [openWeight,setOpenWeight]=useState(focusWeight);
   const [composer,setComposer]=useState<{meal:Meal;entry?:FoodEntry}>();
   const [profileError,setProfileError]=useState('');
   const [dayError,setDayError]=useState('');
@@ -101,6 +102,7 @@ export function Nutrition({ userId }: { userId: string }) {
   const busy=useRef(false);
   const scope=useRef('');
   const editing=useRef(false);
+  const weightEditing=useRef(false);
   scope.current=userId+'|'+date;
   editing.current=!!composer || editingProfile;
   useEffect(()=>{
@@ -118,7 +120,7 @@ export function Nutrition({ userId }: { userId: string }) {
   useEffect(()=>{
     // Pick up server-side Health deliveries on return to the app, without
     // replacing open form inputs or polling while the app is in the background.
-    const refresh=()=>{if(document.visibilityState==='visible' && !busy.current && !editing.current)setReload(value=>value+1);};
+    const refresh=()=>{if(document.visibilityState==='visible' && !busy.current && !editing.current && !weightEditing.current)setReload(value=>value+1);};
     window.addEventListener('focus',refresh);
     const timer=setInterval(refresh,60000);
     return()=>{window.removeEventListener('focus',refresh);clearInterval(timer);};
@@ -126,7 +128,7 @@ export function Nutrition({ userId }: { userId: string }) {
   const persistProfile=async(next:NutritionProfile)=>{
     if(busy.current)throw new Error(t('Un enregistrement est déjà en cours.'));
     const owner=scope.current;busy.current=true;setSaving(true);
-    try{const saved=await saveNutritionProfile(userId,next,profileRecord);if(scope.current===owner){setProfile(next);setProfileRecord(saved);setEditingProfile(false);}}
+    try{const saved=await saveNutritionProfile(userId,next,profileRecord);if(scope.current===owner){setProfile(saved.exercises.find(ex=>ex.nutritionProfile)?.nutritionProfile ?? next);setProfileRecord(saved);setEditingProfile(false);}}
     finally{busy.current=false;setSaving(false);}
   };
   const persistDay=async(change:(latest:NutritionDay)=>NutritionDay)=>{
@@ -145,11 +147,13 @@ export function Nutrition({ userId }: { userId: string }) {
   if(profileError)return <div className="nutrition-error" role="alert">{profileError}<button className="btn btn-secondary" onClick={()=>setProfileReload(value=>value+1)}>{t('Réessayer')}</button></div>;
   if(!profile || editingProfile)return <section className="nutrition-page"><div className="nutrition-page-header"><p className="eyebrow">NUTRITION</p><h1>{t('Mange avec intention.')}</h1><p>{t('Ton objectif, tes repas, ta progression.')}</p></div><ProfileForm initial={profile} saving={saving} onSave={persistProfile} onCancel={profile?()=>setEditingProfile(false):undefined}/></section>;
   return <>
-    <NutritionDiary profile={profile} day={day} date={date} busy={saving} loading={loadingDay} error={dayError}
-      onDate={next=>{if(!busy.current)setDate(next);}} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})}
+    <NutritionDiary profile={profile} day={day} date={date} busy={saving} loading={loadingDay} error={dayError} focusWeight={openWeight}
+      onDate={next=>{if(!busy.current){setOpenWeight(false);setDate(next);}}} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})}
       onRemove={entry=>{if(confirm(t('Retirer cet aliment du journal ?')))void persistDay(latest=>({...latest,entries:latest.entries.filter(item=>item.id!==entry.id)})).catch(error=>setDayError(error.message));}}
       onSteps={count=>persistDay(latest=>({...latest,steps:{count,source:'manual',updatedAt:new Date().toISOString()}}))}
       onWater={waterMl=>persistDay(latest=>({...latest,waterMl}))}
+      onWeight={weightKg=>persistDay(latest=>({...latest,weightKg}))}
+      onWeightEditingChange={active=>{weightEditing.current=active;}}
       onRefresh={()=>setReload(value=>value+1)}/>
     {composer && <FoodComposer key={composer.entry?.id ?? composer.meal} meal={composer.meal} existing={composer.entry} recent={recent}
       onSave={entry=>persistDay(latest=>({...latest,entries:[...latest.entries.filter(item=>item.id!==entry.id),entry]}))}

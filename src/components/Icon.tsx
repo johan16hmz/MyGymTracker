@@ -1,5 +1,9 @@
-type IconName = 'workout' | 'strength' | 'nutrition' | 'plus' | 'arrow' | 'edit' | 'trash' | 'settings' | 'logout' | 'check' | 'search' | 'calendar' | 'barcode' | 'camera' | 'steps' | 'water' | 'leaf';
+type IconName = 'workout' | 'strength' | 'nutrition' | 'statistics' | 'weight' | 'download' | 'refresh' | 'plus' | 'arrow' | 'edit' | 'trash' | 'settings' | 'logout' | 'check' | 'search' | 'calendar' | 'barcode' | 'camera' | 'steps' | 'water' | 'leaf';
 const paths: Record<IconName, string> = {
+  statistics: 'M4 3v17h17M8 16v-5M13 16V7M18 16V4',
+  weight: 'M4 4h16v16H4zM8 9a4 4 0 0 1 8 0M12 9l2-3',
+  download: 'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',
+  refresh: 'M20 7a8 8 0 1 0 1 8M20 3v5h-5',
   workout: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   strength: 'm3 17 6-6 4 3 8-10M15 4h6v6',
   nutrition: 'M4 3v5a3 3 0 0 0 6 0V3M7 3v18M17 3v10h3M20 3v18M17 3h3',

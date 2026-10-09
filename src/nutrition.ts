@@ -6,6 +6,7 @@ export const NUTRITION_PROFILE_NAME = '__nutrition_profile__';
 export const NUTRITION_DAY_NAME = '__nutrition_day__';
 
 export interface NutritionProfile {
+  weightHistory?: { date: string; weightKg: number }[];
   goal: NutritionGoal;
   targetKg: number;
   age: number;
@@ -49,6 +50,7 @@ export interface FoodEntry {
 }
 
 export interface NutritionDay {
+  weightKg?: number;
   date: string;
   entries: FoodEntry[];
   steps?: { count: number; source: 'manual' | 'apple-shortcuts'; updatedAt: string };

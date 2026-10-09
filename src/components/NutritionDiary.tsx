@@ -6,6 +6,7 @@ import { Icon } from './Icon';
 import { mealNames } from './NutritionFoodComposer';
 import { NutritionModal } from './NutritionModal';
 import { NutritionHealthConnect } from './NutritionHealthConnect';
+import { NutritionWeightCard } from './NutritionWeightCard';
 import '../nutrition.css';
 
 const format=(value:number,decimals=0)=>value.toLocaleString(locale(),{maximumFractionDigits:decimals});
@@ -15,9 +16,12 @@ interface Props {
   onDate:(date:string)=>void;onProfile:()=>void;onAdd:(meal:Meal)=>void;onEdit:(entry:FoodEntry)=>void;
   onRemove:(entry:FoodEntry)=>void;onSteps:(count:number)=>Promise<void>;onWater:(amount:number)=>Promise<void>;onRefresh:()=>void;
   onHealthConnect?:()=>void;
+  focusWeight?:boolean;
+  onWeightEditingChange?:(editing:boolean)=>void;
+  onWeight?:(weightKg:number)=>Promise<void>;
 }
 
-export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onProfile,onAdd,onEdit,onRemove,onSteps,onWater,onRefresh,onHealthConnect}:Props) {
+export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onProfile,onAdd,onEdit,onRemove,onSteps,onWater,onRefresh,onHealthConnect,onWeight,focusWeight,onWeightEditingChange}:Props) {
   useLanguage();
   const [health,setHealth]=useState(false);
   const [stepEditor,setStepEditor]=useState(false);
@@ -57,6 +61,7 @@ export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onPro
       })}</div><aside className="nutri-activity"><div className="nutri-section-title"><h2>{t('Mon activité')}</h2><span>{t('Au fil du jour')}</span></div>
         <section className="nutri-activity-card"><header><span className="nutri-activity-icon"><Icon name="steps"/></span><h3>{t('Mes pas')}</h3><span className="nutri-mini-label">{day.steps?.source==='apple-shortcuts'?t('Santé · importés'):t('Non connecté')}</span></header><div className="nutri-step-count"><strong>{format(day.steps?.count ?? 0)}</strong><span>/ {format(stepGoal)}</span></div><div className="nutri-meter"><span style={{width:`${Math.min(100,(day.steps?.count ?? 0)/stepGoal*100)}%`}}/></div><div className="nutri-step-detail"><span>≈ {format(energy.distanceKm,1)} km</span><span>+{energy.bonus} kcal</span></div><p>{t(profile.adjustForSteps?'Seuls les pas au-delà de ton activité habituelle ajustent l’objectif.':'L’ajustement calorique est désactivé. Tu peux l’activer dans Mon objectif.')}</p>{day.steps?.source==='apple-shortcuts' && <small>{t('Dernière mise à jour')} {new Date(day.steps.updatedAt).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})}</small>}<button className="btn btn-primary" disabled={disabled} onClick={()=>onHealthConnect?onHealthConnect():setHealth(true)}><Icon name="steps" size={16}/>{t('Connecter Santé')}</button><div className="nutri-activity-links"><button disabled={disabled} onClick={onRefresh}>{t('Actualiser')}</button><button disabled={disabled} onClick={()=>{setSteps(String(day.steps?.count ?? 0));setStepError('');setStepEditor(true);}}>{t('Corriger les pas')}</button></div></section>
         <section className="nutri-activity-card nutri-water"><header><span className="nutri-activity-icon"><Icon name="water"/></span><h3>{t('Hydratation')}</h3></header><div className="nutri-step-count"><strong>{format((day.waterMl ?? 0)/1000,2)}</strong><span>L {t('aujourd’hui')}</span></div><div className="nutri-water-drops" aria-hidden="true">{Array.from({length:10},(_,index)=><span className={index<(day.waterMl ?? 0)/250?'filled':''} key={index}><Icon name="water" size={15}/></span>)}</div><div className="nutri-water-actions">{[-250,250,500].map(amount=><button key={amount} disabled={disabled || (amount<0 && !(day.waterMl ?? 0)) || (amount>0 && (day.waterMl ?? 0)>=10000)} onClick={()=>{setWaterError('');void onWater(Math.max(0,Math.min(10000,(day.waterMl ?? 0)+amount))).catch(error=>setWaterError(error.message));}}>{amount<0?'−':`+ ${amount} ml`}</button>)}</div>{waterError && <p className="nutrition-error" role="alert">{waterError}</p>}<p>{t('Note tes verres d’eau, sans pression. Tes besoins varient selon ta journée.')}</p></section>
+        {onWeight && <NutritionWeightCard key={date} weightKg={day.weightKg} date={date} disabled={disabled} onSave={onWeight} autoOpen={focusWeight} onEditingChange={onWeightEditingChange}/>}
         <div className="nutri-daily-note"><Icon name="leaf" size={23}/><h3>{t('La régularité, pas la perfection.')}</h3><p>{t('Les portions et calories sont des repères. Écoute aussi ta faim et ton énergie.')}</p></div>
       </aside></div>
       <p className="nutri-source-note">{t('Données alimentaires')} : <a href="https://doi.org/10.57745/RDMHWY" target="_blank" rel="noreferrer">ANSES-CIQUAL 2025</a> / <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a>. {t('Calculs indicatifs, pas un avis médical.')}</p>

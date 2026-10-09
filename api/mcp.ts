@@ -8,6 +8,7 @@ import type { StrengthBlock } from '../src/strength';
 import { estimateCalories, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME } from '../src/nutrition.js';
 import type { FoodEntry, NutritionDay, NutritionProfile } from '../src/nutrition';
 import { normalizeOpenFoodFacts } from '../src/nutritionFood.js';
+import { profileWithWeightHistory } from '../src/statistics.js';
 
 export const runtime = 'nodejs';
 
@@ -338,7 +339,7 @@ function registerTools(server: McpServer, client: SupabaseClient, user: User) {
     try {
       const existing = await nutritionRecord(client, user.id, NUTRITION_PROFILE_NAME);
       const previous=existing?.exercises.find(exercise=>exercise.nutritionProfile)?.nutritionProfile;
-      const profile={...previous,...Object.fromEntries(Object.entries(input).filter(([,value])=>value!==undefined))} as NutritionProfile;
+      const profile=profileWithWeightHistory({...previous,...Object.fromEntries(Object.entries(input).filter(([,value])=>value!==undefined))} as NutritionProfile,previous,new Date().toISOString().slice(0,10));
       const estimate = estimateCalories(profile);
       await writeNutritionRecord(client, user.id, NUTRITION_PROFILE_NAME, existing?.date ?? new Date().toISOString().slice(0, 10), [{ id: existing?.exercises[0]?.id ?? newId(), name: 'Nutrition profile', sets: [], nutritionProfile: profile }], existing);
       return result({ profile, estimate });

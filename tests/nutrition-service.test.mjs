@@ -5,6 +5,7 @@ import ts from 'typescript';
 
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
+const statisticsUrl=compile(readFileSync(new URL('../src/statistics.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
 let calls=[];let record;let health={data:null,error:{code:'PGRST205'}};let written;
 globalThis.nutritionTestClient={from(table){
   const query={
@@ -18,8 +19,8 @@ globalThis.nutritionTestClient={from(table){
   };
   return query;
 }};
-const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`);
-const {loadNutritionDay,saveNutritionDay}=await import(compile(source));
+const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
+const {loadNutritionDay,saveNutritionDay,saveNutritionProfile}=await import(compile(source));
 const date='2026-10-07';
 
 test('nutrition remains usable before the optional Health migration, with owner and date filters',async()=>{
@@ -52,4 +53,13 @@ test('saving foods retains step totals and water and scopes updates to the owner
   assert.equal(written.exercises[0].id,'exercise-record');
   assert.ok(calls.some(call=>call.column==='user_id' && call.value==='owner-a'));
   assert.ok(calls.some(call=>call.column==='id' && call.value==='day-record'));
+});
+test('saving a profile retains the latest server weight history and records today without backdating',async()=>{
+  calls=[];record={id:'profile',date:'2026-09-01',exercises:[{id:'profile-data',nutritionProfile:{weightKg:79,weightHistory:[{date:'2026-10-01',weightKg:79}]}}]};
+  await saveNutritionProfile('owner-a',{weightKg:80},{id:'stale',exercises:[{id:'stale-data'}]});
+  assert.equal(written.exercises[0].nutritionProfile.weightHistory[0].weightKg,79);
+  assert.equal(written.exercises[0].nutritionProfile.weightHistory.at(-1).weightKg,80);
+  assert.equal(written.exercises[0].id,'profile-data');
+  assert.ok(calls.some(call=>call.column==='id' && call.value==='profile'));
+  assert.ok(calls.some(call=>call.column==='user_id' && call.value==='owner-a'));
 });

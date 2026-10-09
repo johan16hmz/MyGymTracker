@@ -48,6 +48,15 @@ La réception automatique des pas Apple Santé **reste désactivée** à la dema
 
 Vérification locale : `node --test tests/nutrition.test.mjs`, puis `npm.cmd run build`.
 
+## Utiliser les Statistiques
+
+- Les courbes Force utilisent uniquement les séries réalisées, par exercice et nombre de répétitions. Les charges prévues n’y sont pas comptées ; les exercices lestés affichent le lest externe.
+- Les périodes disponibles sont 4 semaines, 12 semaines, 6 mois et tout l’historique.
+- Dans Nutrition, « Ma pesée » enregistre le poids de la journée. Les sauvegardes du profil conservent aussi leur poids daté. Les anciens poids sans date ne sont pas inventés sur une courbe. Une pesée ne modifie pas l’objectif calorique.
+- La régularité compte les jours d’entraînement uniques, avec les semaines partielles indiquées. Le volume de force correspond à la charge externe × les répétitions des séries réalisées.
+- « Exporter en Excel » télécharge localement un `.xlsx` avec Synthèse, Force, Pesées, Semaines et Séances, sur la période choisie et pour tous les exercices. Les dates et les nombres restent typés ; aucun fichier n’est envoyé à un serveur.
+- Aperçu de développement, données fictives : `http://127.0.0.1:5173/tests/statistics-preview.html` après `npm run dev`. Aucun accès Santé n’est activé.
+
 ## Stack technique
 
 | Technologie | Rôle |

@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 import type { Workout } from './types';
 import type { FoodEntry, NutritionDay, NutritionProfile } from './nutrition';
 import { localDate, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME } from './nutrition';
+import { profileWithWeightHistory } from './statistics';
 
 export function isNutritionRecord(workout: Workout) {
   return workout.name === NUTRITION_PROFILE_NAME || workout.name === NUTRITION_DAY_NAME || workout.exercises.some(exercise => !!exercise.nutritionProfile || !!exercise.nutritionDay);
@@ -36,9 +37,12 @@ export async function loadNutritionProfile(userId: string) {
 }
 
 export async function saveNutritionProfile(userId: string, profile: NutritionProfile, existing?: Workout) {
-  return saveRecord(userId, NUTRITION_PROFILE_NAME, existing?.date ?? localDate(), [{
-    id: existing?.exercises[0]?.id ?? crypto.randomUUID(), name: 'Nutrition profile', sets: [], nutritionProfile: profile,
-  }], existing);
+  const latest = await loadNutritionProfile(userId);
+  const current = latest.record ?? existing;
+  const tracked = profileWithWeightHistory(profile, latest.profile);
+  return saveRecord(userId, NUTRITION_PROFILE_NAME, current?.date ?? localDate(), [{
+    id: current?.exercises[0]?.id ?? crypto.randomUUID(), name: 'Nutrition profile', sets: [], nutritionProfile: tracked,
+  }], current);
 }
 
 export async function loadNutritionDay(userId: string, date: string) {
