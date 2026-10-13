@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { estimateCalories, foodTotals, localDate, stepEnergy, sumEntries } from '../nutrition';
+import { estimateCalories, foodTotals, localDate, macroTargets, stepEnergy, sumEntries } from '../nutrition';
 import type { FoodEntry, Meal, NutritionDay, NutritionProfile } from '../nutrition';
 import { locale, t, useLanguage } from '../i18n';
 import { Icon } from './Icon';
@@ -31,19 +31,21 @@ export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onPro
   const [stepError,setStepError]=useState('');
   const [waterError,setWaterError]=useState('');
   const totals=sumEntries(day.entries);
-  const base=profile.calorieOverride ?? estimateCalories(profile).target;
+  const estimate=estimateCalories(profile);
+  const base=profile.calorieOverride ?? estimate.target;
   const energy=stepEnergy(profile,day.steps?.count ?? 0);
   const target=base+energy.bonus;
   const remaining=target-totals.kcal;
   const ratio=Math.min(1,Math.max(0,totals.kcal/target));
   const circumference=2*Math.PI*72;
-  const fiberGoal=profile.fiberGoal ?? 30;
+  const goals=macroTargets(profile,target);
+  const fiberGoal=goals.fiber;
   const stepGoal=profile.stepGoal ?? 10000;
   const missingFiber=day.entries.filter(entry=>entry.food.fiber100===undefined).length;
   const disabled=busy || loading;
   const shift=(offset:number)=>{const value=new Date(`${date}T12:00:00`);value.setDate(value.getDate()+offset);onDate(localDate(value));};
   const pretty=new Date(`${date}T12:00:00`).toLocaleDateString(locale(),{weekday:'long',day:'numeric',month:'long'});
-  const nutrients=[{label:'Protéines',value:totals.protein,color:'protein',percent:target?totals.protein*4/target*100:0},{label:'Glucides',value:totals.carbs,color:'carbs',percent:target?totals.carbs*4/target*100:0},{label:'Lipides',value:totals.fat,color:'fat',percent:target?totals.fat*9/target*100:0},{label:'Fibres',value:totals.fiber,color:'fiber',percent:totals.fiber/fiberGoal*100}];
+  const nutrients=[{label:'Protéines',value:totals.protein,goal:goals.protein,color:'protein'},{label:'Glucides',value:totals.carbs,goal:goals.carbs,color:'carbs'},{label:'Lipides',value:totals.fat,goal:goals.fat,color:'fat'},{label:'Fibres',value:totals.fiber,goal:fiberGoal,color:'fiber'}].map(nutrient=>({...nutrient,percent:nutrient.goal?nutrient.value/nutrient.goal*100:0}));
   return <section className="nutri-page">
     <header className="nutri-page-header"><div><p className="eyebrow">NUTRITION / {t('TON JOURNAL')}</p><h1>{t('Bien manger. À ton rythme.')}</h1><p>{t('Une vue claire de tes repas, de ton énergie et de ton activité.')}</p></div><button className="btn btn-secondary" disabled={disabled} onClick={onProfile}><Icon name="settings" size={17}/>{t('Mon objectif')}</button></header>
     <div className="nutri-date-bar"><div className="nutri-date-navigation"><button aria-label={t('Jour précédent')} disabled={busy} onClick={()=>shift(-1)}>‹</button><div><strong>{date===localDate()?t('Aujourd’hui'):t('Journal du jour')}</strong><span>{pretty}</span></div><button aria-label={t('Jour suivant')} disabled={busy} onClick={()=>shift(1)}>›</button></div><label className="nutri-date-picker"><Icon name="calendar" size={17}/><input type="date" aria-label={t('Choisir une date')} disabled={busy} value={date} onChange={event=>{if(/^\d{4}-\d{2}-\d{2}$/.test(event.target.value))onDate(event.target.value);}}/></label></div>
@@ -51,7 +53,9 @@ export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onPro
     {loading ? <div className="loading-panel" role="status"><span className="loading-spinner"/>{t('Chargement de la journée…')}</div>:!error && <>
       <section className="nutri-overview" aria-label={t('Bilan de la journée')}>
         <div className="nutri-calorie-main"><div className="nutri-ring"><svg viewBox="0 0 168 168" aria-hidden="true"><circle cx="84" cy="84" r="72" className="nutri-ring-track"/><circle cx="84" cy="84" r="72" className="nutri-ring-value" strokeDasharray={circumference} strokeDashoffset={circumference*(1-ratio)}/></svg><div><strong>{format(Math.abs(Math.round(remaining)))}</strong><span>{t(remaining>=0?'kcal restantes':'kcal au-dessus')}</span></div></div><div className="nutri-calorie-copy"><span className="nutri-detail-badge">{t('TON ÉQUILIBRE DU JOUR')}</span><h2>{t(remaining>=0?'Chaque repas compte.':'Une journée, pas un verdict.')}</h2><div className="nutri-calorie-stats"><div><strong>{format(Math.round(totals.kcal))}</strong><span>{t('mangées')}</span></div><div><strong>{format(target)}</strong><span>{t('objectif kcal')}</span></div><div><strong>+{format(energy.bonus)}</strong><span>{t('activité kcal')}</span></div></div><small>{t('Objectif de base')} {format(base)} kcal {energy.bonus>0 && `+ ${energy.bonus} ${t('kcal de marche estimées')}`}</small></div></div>
-        <div className="nutri-nutrients">{nutrients.map(nutrient=><div className={`nutri-nutrient ${nutrient.color}`} key={nutrient.color}><span>{t(nutrient.label)}</span><strong>{format(nutrient.value,1)} <small>g</small></strong><div className="nutri-meter"><span style={{width:`${Math.min(100,nutrient.percent)}%`}}/></div><small>{nutrient.color==='fiber'?`${t('Repère')} ${fiberGoal} g${missingFiber?` · ${t('partiel')}`:''}`:`${format(nutrient.percent)} % ${t('de l’objectif kcal')}`}</small></div>)}</div>
+        <div className="nutri-nutrients">{nutrients.map(nutrient=><div className={`nutri-nutrient ${nutrient.color}`} key={nutrient.color}><span>{t(nutrient.label)}</span><strong>{format(nutrient.value,1)} <small className="nutri-macro-target">/ {format(nutrient.goal,1)} g</small></strong><div className="nutri-meter" role="progressbar" aria-label={t(nutrient.label)} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100,nutrient.percent))} aria-valuetext={`${format(nutrient.value,1)} / ${format(nutrient.goal,1)} g`}><span style={{width:`${Math.min(100,nutrient.percent)}%`}}/></div><small>{format(nutrient.percent)} % {t('du repère')}{nutrient.color==='fiber' && missingFiber>0?` · ${t('partiel')}`:''}</small></div>)}</div>
+        <button className="nutri-macro-goals-link" disabled={disabled} onClick={onProfile}>{t('Cibles estimées automatiquement depuis mon profil')} →</button>
+        {estimate.timeline && <p className="nutri-timeline-journal">{t('Date souhaitée')} : {new Date(`${profile.goalDate}T12:00:00`).toLocaleDateString(locale())} · {t(profile.calorieOverride!==undefined?'Objectif calorique manuel prioritaire':estimate.timeline.expired?'Échéance dépassée : actualise Mon objectif':estimate.timeline.limited?'Ajustement plafonné : revois le délai dans Mon objectif':'Ajustement de départ selon le délai, à réévaluer')}</p>}
         {missingFiber>0 && <p className="nutri-hint nutri-fiber-warning">{t('Total de fibres partiel : valeurs absentes pour')} {missingFiber} {t(missingFiber===1?'aliment.':'aliments.')}</p>}
       </section>
       {onHistory && <section className="nutri-history-banner"><div><p className="eyebrow">{t('TES HABITUDES')}</p><h2>{t('Déjà mangé ? Retrouve-le.')}</h2><p>{t('Marques, dernières quantités et aliments habituels réunis au même endroit.')}</p></div><button className="btn btn-secondary" disabled={disabled} onClick={onHistory}><Icon name="calendar" size={18}/>{t('Historique alimentaire')}</button></section>}

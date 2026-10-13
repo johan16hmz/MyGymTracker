@@ -18,7 +18,7 @@ export function FoodComposer({meal,existing,initial,recent,onSave,onClose,render
   const starting=existing ?? initial;
   const language = useLanguage();
   const [mode,setMode] = useState<'search'|'barcode'|'manual'>('search');
-  const [scope,setScope] = useState<'all'|'common'|'brands'|'recent'>('all');
+  const [scope,setScope] = useState<'all'|'common'|'brands'|'recent'>('recent');
   const [query,setQuery] = useState('');
   const [catalog,setCatalog] = useState<FoodCandidate[]>([]);
   const [results,setResults] = useState<FoodCandidate[]>([]);
@@ -29,6 +29,10 @@ export function FoodComposer({meal,existing,initial,recent,onSave,onClose,render
   const [barcode,setBarcode] = useState('');
   const [error,setError] = useState('');
   const [saving,setSaving] = useState(false);
+  const [addedMessage,setAddedMessage]=useState('');
+  const [entryId,setEntryId]=useState(()=>existing?.id ?? crypto.randomUUID());
+  const submitBusy=useRef(false);
+  const toolsRef=useRef<HTMLDivElement>(null);
   const [selected,setSelected] = useState<FoodCandidate | undefined>(starting?.food);
   const [name,setName] = useState(starting?.food.name ?? '');
   const [brand,setBrand] = useState(starting?.food.brand ?? '');
@@ -102,16 +106,22 @@ export function FoodComposer({meal,existing,initial,recent,onSave,onClose,render
   const portions = defaultPortions({...selected,name:selected?.name || name,unit});
   const editing = !!selected || mode === 'manual';
   const incomplete = values.slice(0,4).some(value=>!value.trim());
+  useEffect(()=>{
+    if(!addedMessage || editing)return;
+    toolsRef.current?.closest<HTMLElement>('.nutri-sheet')?.scrollTo({top:0});
+    toolsRef.current?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});
+  },[addedMessage,editing]);
   return <NutritionModal title={existing?t('Modifier un aliment'):editing?name || t('Nouvel aliment'):t('Ajouter un aliment')} subtitle={t(mealNames[meal])} onClose={onClose} busy={saving}>
     {!editing ? <>
-      <div className="nutri-tool-tabs" aria-label={t('Mode d’ajout')}>
+      <div ref={toolsRef} className="nutri-tool-tabs" aria-label={t('Mode d’ajout')}>
         <button type="button" aria-pressed={mode==='search'} onClick={()=>changeMode('search')}><Icon name="search"/><span>{t('Rechercher')}</span></button>
         <button type="button" aria-pressed={mode==='barcode'} onClick={()=>changeMode('barcode')}><Icon name="barcode"/><span>{t('Code-barres')}</span></button>
         <button type="button" aria-pressed={false} onClick={()=>changeMode('manual')}><Icon name="edit"/><span>{t('Créer un aliment')}</span></button>
       </div>
       {mode==='search' ? <>
         <form className="nutri-search" onSubmit={event=>{event.preventDefault();if(includesBrands)void searchBrands();}}><Icon name="search"/><input aria-label={t('Rechercher un aliment')} placeholder={t('Nom de l’aliment ou marque…')} autoComplete="off" maxLength={80} value={query} onChange={event=>changeQuery(event.target.value)}/>{query && <button type="button" aria-label={t('Effacer la recherche')} onClick={()=>changeQuery('')}>×</button>}{includesBrands && <button type="submit" className="nutri-search-submit" disabled={lookupBusy || query.trim().length<2}>{t('Chercher')}</button>}</form>
-        <div className="nutri-filter-chips">{(['all','common','brands','recent'] as const).map(option=><button type="button" key={option} aria-pressed={scope===option} onClick={()=>{cancelLookup();setScope(option);setError('');}}>{t(option==='all'?'Tout':option==='common'?'Aliments courants':option==='brands'?'Produits de marque':'Récents')}</button>)}</div>
+        <div className="nutri-filter-chips">{(['recent','all','common','brands'] as const).map(option=><button type="button" key={option} aria-pressed={scope===option} onClick={()=>{cancelLookup();setScope(option);setError('');}}>{t(option==='all'?'Tout':option==='common'?'Aliments courants':option==='brands'?'Produits de marque':'Récents')}</button>)}</div>
+        {addedMessage && <p className="nutri-added-feedback" role="status"><Icon name="check" size={18}/>{addedMessage}</p>}
         {includesBrands && <p className="nutri-search-hint">{t('Recherche automatique par nom ou marque à partir de 3 caractères.')}</p>}
         <div className="nutri-results-heading"><span>{t(query?'Résultats':'Pour commencer')}</span><small>{scope==='recent'?t('Ton journal'):scope==='brands'?'Open Food Facts':scope==='all'?'CIQUAL · Open Food Facts':'ANSES · CIQUAL 2025'}</small></div>
         {(lookupBusy || awaitingBrands) && displayed.length>0 && <p className="nutri-hint" role="status">{t('Recherche des produits de marque…')}</p>}
@@ -123,14 +133,18 @@ export function FoodComposer({meal,existing,initial,recent,onSave,onClose,render
           return <button type="button" key={`${food.id || food.barcode || food.name}-${index}`} className="nutri-food-result" disabled={lookupBusy} onClick={()=>void selectResult(food)}>
             <span className="nutri-food-avatar"><Icon name="nutrition" size={22}/></span><span className="nutri-food-result-copy"><small className={food.brand?'nutri-food-brand':undefined}>{food.brand ? food.brand : t(foodBrandLabel(food))}</small><strong>{language==='en' && food.nameEn ? food.nameEn : food.name}</strong>{kindLabel && <span className="nutri-food-kind">{t(kindLabel)}</span>}<small>{portion.quantity} {food.unit}{food.servingQuantity ? ` · ${t('Portion de l’étiquette')}`:''}</small><span>{[food.kcal100,food.protein100,food.carbs100,food.fat100].some(value=>value===null)?t('Valeurs nutritionnelles à compléter'):<>{food.protein100===null?'—':format(food.protein100*portion.quantity/100)} g {t('protéines')} · {food.fiber100===undefined?'—':format(food.fiber100*portion.quantity/100)} g {t('fibres')}</>}</span></span><span className="nutri-food-result-end"><strong>{food.kcal100===null?'—':Math.round(food.kcal100*portion.quantity/100)} <small>kcal</small></strong><span className="nutri-plus">+</span></span>
           </button>;
-        })}{!displayed.length && <div className="nutri-search-empty"><Icon name="search" size={30}/><strong>{t(error?'Recherche indisponible pour le moment.':includesBrands && !brandsSearched?'Cherche ton produit par son nom.':scope==='recent'?'Tes aliments récents apparaîtront ici.':'Aucun résultat pour ce nom.')}</strong><p>{t(error?'La base des produits de marque ne répond pas. Réessaie ou utilise les aliments courants.':includesBrands && !brandsSearched?'Saisis au moins 3 caractères ou appuie sur Chercher.':'Essaie un autre nom ou ajoute-le manuellement.')}</p></div>}</div>}
+        })}{!displayed.length && <div className="nutri-search-empty"><Icon name="search" size={30}/><strong>{t(error?'Recherche indisponible pour le moment.':includesBrands && !brandsSearched?'Cherche ton produit par son nom.':scope==='recent'?query?'Aucun aliment récent ne correspond à cette recherche.':'Tes aliments récents apparaîtront ici.':'Aucun résultat pour ce nom.')}</strong><p>{t(error?'La base des produits de marque ne répond pas. Réessaie ou utilise les aliments courants.':includesBrands && !brandsSearched?'Saisis au moins 3 caractères ou appuie sur Chercher.':'Essaie un autre nom ou ajoute-le manuellement.')}</p>{scope==='recent' && <button type="button" className="btn btn-secondary" onClick={()=>{cancelLookup();setScope('all');setError('');}}>{t('Rechercher un nouvel aliment')}</button>}</div>}</div>}
       </> : <div className="nutri-barcode-panel"><p>{t('Scanne l’emballage pour retrouver ses valeurs nutritionnelles.')}</p><button type="button" className="btn btn-primary" onClick={()=>{setError('');setScanning(value=>!value);}} disabled={lookupBusy}><Icon name="camera"/>{t(scanning?'Arrêter la caméra':'Scanner avec la caméra')}</button>{scanning && renderScanner(code=>void scan(code),message=>{setScanning(false);setError(message);})}<p className="nutri-hint">{t('Autorise la caméra dans ton navigateur. Les images restent sur ton appareil.')}</p><form className="nutri-barcode-input" onSubmit={event=>{event.preventDefault();void scan(barcode);}}><label>{t('Ou saisis le code-barres')}<input value={barcode} inputMode="numeric" onChange={event=>setBarcode(event.target.value.replace(/\D/g,''))} placeholder="EAN / UPC"/></label><button className="btn btn-secondary" type="submit" disabled={lookupBusy || !/^\d{8,14}$/.test(barcode)}>{t(lookupBusy?'Recherche…':'Rechercher')}</button></form></div>}
     </> : <form onSubmit={event=>{
-      event.preventDefault();
+      event.preventDefault();if(submitBusy.current)return;
       if (!name.trim() || !quantity.trim() || incomplete || numeric.some((value,index)=>!Number.isFinite(value) || value<0 || (index>0 && value>100)) || !Number.isFinite(Number(quantity)) || Number(quantity)<=0 || Number(quantity)>10000 || numeric[0]>1000) {setError(t('Vérifie le nom, la quantité et les valeurs nutritionnelles.'));return;}
       const food:Food={...selected,name:name.trim(),brand:brand.trim() || undefined,source:selected?.source ?? 'manual',unit,kcal100:numeric[0],protein100:numeric[1],carbs100:numeric[2],fat100:numeric[3],fiber100:values[4].trim()?numeric[4]:undefined};
-      setSaving(true);setError('');
-      void onSave({id:existing?.id ?? crypto.randomUUID(),meal,food,quantity:Number(quantity),addedAt:existing?.addedAt ?? new Date().toISOString()}).then(onClose).catch(error=>setError(error instanceof Error?error.message:t('Enregistrement impossible. Tes saisies sont conservées ici. Vérifie ta connexion puis réessaie.'))).finally(()=>setSaving(false));
+      submitBusy.current=true;setSaving(true);setError('');setAddedMessage('');
+      void onSave({id:entryId,meal,food,quantity:Number(quantity),addedAt:existing?.addedAt ?? new Date().toISOString()}).then(()=>{
+        if(existing){onClose();return;}
+        cancelLookup();setSelected(undefined);setMode('search');setScope('recent');setQuery('');setResults([]);setBrandsSearched(false);setScanning(false);setBarcode('');setName('');setBrand('');setUnit('g');setQuantity('100');setValues(['','','','','']);setEntryId(crypto.randomUUID());
+        setAddedMessage(t('Aliment ajouté. Tu peux en ajouter un autre à ce repas.'));
+      }).catch(error=>setError(error instanceof Error?error.message:t('Enregistrement impossible. Tes saisies sont conservées ici. Vérifie ta connexion puis réessaie.'))).finally(()=>{submitBusy.current=false;setSaving(false);});
     }}>
       {!existing && <button type="button" className="nutri-back-link" disabled={saving} onClick={()=>{setSelected(undefined);setMode('search');setError('');}}>‹ {t('Retour à la recherche')}</button>}
       <div className="nutri-food-detail"><span className="nutri-detail-badge">{selected?.source==='ciqual'?'ANSES · CIQUAL':selected?.source==='openfoodfacts'?'Open Food Facts':t('Aliment personnel')}</span><h3>{name || t('Nouvel aliment')}</h3>{brand && <p>{brand}</p>}{selected && foodKindLabel(selected) && <span className="nutri-food-kind">{t(foodKindLabel(selected)!)}</span>}{selected?.description && <p className="nutri-food-description">{selected.description}</p>}<div className="nutri-food-macros"><div><strong>{Math.round(preview.kcal)}</strong><span>kcal</span></div><div><strong>{format(preview.protein)} g</strong><span>{t('Protéines')}</span></div><div><strong>{format(preview.carbs)} g</strong><span>{t('Glucides')}</span></div><div><strong>{format(preview.fat)} g</strong><span>{t('Lipides')}</span></div><div><strong>{values[4]?`${format(preview.fiber)} g`:'—'}</strong><span>{t('Fibres')}</span></div></div></div>
@@ -141,6 +155,7 @@ export function FoodComposer({meal,existing,initial,recent,onSave,onClose,render
       <footer className="nutri-sheet-footer"><div><strong>{Math.round(preview.kcal)} kcal</strong><small>{format(Number(quantity)||0)} {unit} · {t(mealNames[meal])}</small></div><button className="btn btn-primary" type="submit" disabled={saving}><Icon name="plus"/>{t(saving?'Enregistrement…':existing?'Enregistrer':'Ajouter au journal')}</button></footer>
     </form>}
     {!editing && error && <p className="nutrition-error" role="alert">{error}</p>}
+    {!editing && <div className="nutri-composer-done"><button type="button" className="btn btn-secondary" disabled={saving} onClick={onClose}>{t('Terminer l’ajout')}</button></div>}
     <p className="nutri-source-note">{t('Valeurs moyennes et données déclarées : vérifie le produit et son état cru ou cuit.')} <a href="https://doi.org/10.57745/RDMHWY" target="_blank" rel="noreferrer">ANSES-CIQUAL 2025</a> · <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a></p>
   </NutritionModal>;
 }

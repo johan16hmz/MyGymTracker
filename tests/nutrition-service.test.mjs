@@ -76,3 +76,12 @@ test('food history paginates all owner journals, including older than fourteen d
   assert.equal(calls.filter(call=>call.column==='user_id' && call.value==='owner-a').length,2);
   assert.equal(calls.filter(call=>call.column==='name' && call.value==='__nutrition_day__').length,2);
 });
+test('nutrition saves refined activity inputs alongside the owner profile and weight history',async()=>{
+  calls=[];record={id:'profile',date:'2026-09-01',exercises:[{id:'profile-data',nutritionProfile:{weightKg:80,weightHistory:[{date:'2026-10-01',weightKg:79}]}}]};
+  const profile={weightKg:80,goal:'gain',goalDate:'2027-04-13',activity:'active',dailyActivity:'sedentary',sessionsPerWeek:4,sessionMinutes:60,trainingKind:'strength',equationSex:'female'};
+  await saveNutritionProfile('owner-a',profile);
+  const saved=written.exercises[0].nutritionProfile;
+  for(const key of ['goalDate','dailyActivity','sessionsPerWeek','sessionMinutes','trainingKind','equationSex'])assert.equal(saved[key],profile[key]);
+  assert.equal(saved.weightHistory[0].weightKg,79);
+  assert.ok(calls.some(call=>call.column==='user_id' && call.value==='owner-a'));
+});

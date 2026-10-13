@@ -201,4 +201,28 @@
 .nutri-history-controls select { height:56px; }
 .nutri-history-controls .nutri-search { margin:0;min-height:56px; }
 .nutri-history-more { margin:20px 0 6px;width:100%; }
+.nutri-nutrient strong { display:flex;flex-wrap:wrap;align-items:baseline;gap:6px; }
+.nutri-nutrient strong .nutri-macro-target { font-size:.83rem;color:var(--text-muted);white-space:nowrap; }
+.nutri-macro-goals-link { display:block;width:100%;border:0;border-top:1px solid var(--border);background:transparent;color:var(--text-muted);padding:12px 20px;font-size:.73rem;text-align:left; }
+.nutri-macro-goals-link:hover { color:var(--text);background:var(--surface-hover); }
+.nutri-added-feedback { display:flex;align-items:center;gap:10px;padding:12px 14px;margin:16px 0;border-radius:12px;background:var(--surface-hover);color:var(--success);font-size:.8rem; }
+.nutri-composer-done { position:sticky;bottom:-20px;padding:14px 0 4px;background:var(--surface);margin-top:14px;border-top:1px solid var(--border); }
+.nutri-composer-done .btn { width:100%; }
+.nutri-auto-macro-preview { display:flex;flex-wrap:wrap;gap:12px;margin-top:16px; }
+.nutri-auto-macro-preview > div { flex:1 1 130px;background:var(--surface-hover);border:1px solid var(--border);padding:14px;border-radius:12px; }
+.nutri-auto-macro-preview span,.nutri-auto-macro-preview strong { display:block; }
+.nutri-auto-macro-preview span { font-size:.74rem;color:var(--text-muted);margin-bottom:5px; }
 @media(max-width:740px) { .nutri-history-banner { flex-direction:column;align-items:flex-start;padding:20px; } .nutri-history-controls { grid-template-columns:1fr;gap:12px; } .nutri-history-controls input,.nutri-history-controls select { font-size:16px; } }
+.nutri-goal-timeline { border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin: 24px 0; min-width: 0; }
+.nutri-goal-timeline legend { color: var(--text); font-weight: 700; padding: 0 8px; }
+.nutri-goal-timeline p { color: var(--text-muted); font-size: .85rem; line-height: 1.6; }
+.nutri-goal-timeline p.nutrition-error { color: var(--danger); }
+.nutri-goal-timeline label { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; color: var(--text-muted); font-size: .8rem; }
+.nutri-timeline-presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.nutri-timeline-presets [aria-pressed="true"] { border-color: #a6c75b; background: var(--primary); color: #233019; }
+.nutri-timeline-clear { border: 0; background: none; color: var(--text-muted); cursor: pointer; padding: 12px 0; text-decoration: underline; }
+.nutri-timeline-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 18px 0; }
+.nutri-timeline-metrics > span { display: flex; flex-direction: column; gap: 8px; border-radius: 12px; padding: 14px; background: var(--surface-hover); color: var(--text-muted); font-size: .75rem; }
+.nutri-timeline-metrics strong { color: var(--text); font-size: 1rem; }
+.nutri-timeline-journal { padding: 0 24px 18px; color: var(--text-muted); font-size: .8rem; line-height: 1.5; margin: 0; }
+@media(max-width:600px) { .nutri-timeline-metrics { grid-template-columns: 1fr; } .nutri-goal-timeline { padding: 16px; } }
