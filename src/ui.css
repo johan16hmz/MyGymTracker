@@ -118,7 +118,10 @@ small { font-size: .78rem; }
 .card-stats { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px 24px; }
 .stat { border-radius: 6px; background: var(--bg); border: 1px solid var(--border); padding: 3px 8px; font-size: .68rem; color: var(--text-muted); }
 .card-actions { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); }
-.card-actions .btn:first-child { margin-right: auto; border: 0; background: transparent; padding-left: 3px; }
+.card-actions .btn:first-child { margin-right: auto; }
+/* Keep primary actions filled: the old first-child rule hid the lime background
+   while retaining dark text, making completed-workout buttons unreadable. */
+.card-actions .btn-secondary:first-child { border: 0; background: transparent; padding-left: 3px; }
 .card-actions .btn { min-height: 36px; padding: 7px 10px; }
 .card-details { padding: 18px 24px; border-top: 1px solid var(--border); animation: arrive .2s; }
 .exercises-list h4 { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 16px; }

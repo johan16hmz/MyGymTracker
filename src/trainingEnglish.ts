@@ -1,9 +1,5 @@
 export const trainingEnglish:Record<string,string>={
   'Séance réalisée':'Completed workout', 'Saisir mes performances Force':'Log my strength performances',
-  'Quelle séance as-tu réalisée ?':'Which workout did you complete?', 'VALIDATION RAPIDE':'QUICK LOG',
-  'Choisis ton modèle, puis confirme la date. Pour Force, indique les séries réellement faites.':'Choose your template, then confirm the date. For strength, enter the sets you actually completed.',
-  'Crée d’abord une séance ou un bloc Force pour enregistrer un entraînement.':'Create a workout or strength block first to log a completed training session.',
-  'Valider la séance':'Confirm workout',
   'Ce que tu as réellement soulevé':'What you actually lifted',
   'Enregistre un entraînement du jour ou passé. Les charges prévues restent séparées des performances.':'Log a current or past training session. Planned loads stay separate from actual performances.',
   'Enregistrer ces séries réalisées':'Log these completed sets', 'jours d’entraînement enregistrés':'logged training days',
