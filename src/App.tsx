@@ -4,6 +4,7 @@ import type { Workout, TrainingSession } from './types';
 import { isTrainingSessionRecord, trainingSessions } from './trainingSessions';
 import { saveTrainingSession, removeTrainingSession } from './trainingSessionService';
 import { TrainingSessionForm } from './components/TrainingSessionForm';
+import { TrainingQuickAction } from './components/TrainingQuickAction';
 import { buildStatistics } from './statistics';
 import { WorkoutList } from './components/WorkoutList';
 import { WorkoutForm } from './components/WorkoutForm';
@@ -172,7 +173,7 @@ function App() {
       <header className="app-header">
         <button className="brand" onClick={handleBackToList}><span className="brand-mark"><img src="/brand-icon.svg?v=3" alt="" /></span><span>MyGym<span className="brand-light">Tracker</span><small>TRAINING JOURNAL</small></span></button>
         <p className="nav-caption">{t('TON ESPACE')}</p>
-        <nav className="app-sections" aria-label="Sections">
+        <nav className="app-sections with-training-action" aria-label="Sections">
           <button className={`nav-item ${!['strength','nutrition','statistics'].includes(view) ? 'active' : ''}`} aria-current={!['strength','nutrition','statistics'].includes(view) ? 'page' : undefined} onClick={handleBackToList}><Icon name="workout" />{t("Séances")}<span className="nav-dot" /></button>
           <button disabled={savingWorkout} className={`nav-item ${view === 'strength' ? 'active' : ''}`} aria-current={view === 'strength' ? 'page' : undefined} onClick={() => setView('strength')}><Icon name="strength" />{t("Force")}<span className="nav-dot" /></button>
           <button className={`nav-item ${view === 'nutrition' ? 'active' : ''}`} aria-current={view === 'nutrition' ? 'page' : undefined} onClick={() => {
@@ -186,6 +187,7 @@ function App() {
             if (strengthPending && !confirm(t("Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?"))) return;
             setView('statistics');
           }}><Icon name="statistics" />{t('Statistiques')}<span className="nav-dot" /></button>
+          <TrainingQuickAction workouts={workouts} disabled={loadingWorkouts || !!loadError || savingWorkout || strengthPending || !!sessionEntry} onChoose={workout=>setSessionEntry({workout})}/>
         </nav>
         <div className="sidebar-note"><Icon name="strength" size={28} /><p>{t('La régularité fait la différence.')}</p><span>{t('Une séance à la fois.')}</span></div>
         <div className="header-user"><Settings /><div className="user-profile"><span className="avatar">{currentUser[0].toUpperCase()}</span><span className="username">{currentUser}<small>{t('Mon compte')}</small></span></div><button className="logout-button" onClick={handleLogout}><Icon name="logout" />{t('Déconnexion')}</button></div>
