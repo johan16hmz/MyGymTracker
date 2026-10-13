@@ -6,12 +6,13 @@ import ExcelJS from 'exceljs';
 
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
-const statisticsUrl=compile(readFileSync(new URL('../src/statistics.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
+const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
+const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
 const {buildStatistics}=await import(statisticsUrl);
-const fixtureUrl=compile(readFileSync(new URL('./statistics-fixture.ts',import.meta.url),'utf8').replaceAll("from '../src/statistics';",`from ${JSON.stringify(statisticsUrl)};`).replaceAll("from '../src/nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
+const fixtureUrl=compile(readFileSync(new URL("./statistics-fixture.ts",import.meta.url),"utf8").replaceAll("from '../src/statistics';",`from ${JSON.stringify(statisticsUrl)};`).replaceAll("from '../src/nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from '../src/trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
 const {statisticsFixture}=await import(fixtureUrl);
 globalThis.statsExcelJS=ExcelJS;
-const exportSource=readFileSync(new URL('../src/statisticsExport.ts',import.meta.url),'utf8').replace("import ExcelJS from 'exceljs';",'const ExcelJS=globalThis.statsExcelJS;');
+const exportSource=readFileSync(new URL('../src/statisticsExport.ts',import.meta.url),'utf8').replace("import ExcelJS from 'exceljs';",'const ExcelJS=globalThis.statsExcelJS;').replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
 const {createStatisticsWorkbook}=await import(compile(exportSource));
 
 test('Excel export round trip preserves dates, numbers, formulas, filters and all lifts',async()=>{
@@ -26,6 +27,11 @@ test('Excel export round trip preserves dates, numbers, formulas, filters and al
   assert.deepEqual(force.getCell('H6').value,{formula:'D6*E6',result:217.5});
   assert.equal(force.getCell('I6').value,null);
   assert.equal(force.getCell('D6').numFmt,'#,##0.00');
+  assert.ok(Math.abs(force.getCell('K6').result-79.75)<1e-10);
+  assert.match(force.getCell('K6').formula,/E6<=10/);
+  assert.match(force.getCell('K6').formula,/IF\(E6=1,D6,/);
+  assert.equal(reopened.getWorksheet('Séances').rowCount,23);
+  assert.equal(reopened.getWorksheet('Séances').getCell('B5').value,'Modèle utilisé');
   assert.equal(reopened.getWorksheet('Synthèse').getCell('B8').result,51975);
   assert.equal(reopened.getWorksheet('Pesées').rowCount,24);
   assert.equal(force.views[0].ySplit,5);assert.ok(force.autoFilter);

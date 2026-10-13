@@ -15,7 +15,7 @@ export async function saveStrengthBlock(userId: string, name: string, block: Str
   const query = existing
     ? supabase.from('workouts').update(payload).eq('id', existing.id).eq('user_id', userId)
     : supabase.from('workouts').insert({ ...payload, user_id: userId, date: new Date().toLocaleDateString('en-CA'), created_at: new Date().toISOString() });
-  const { data, error } = await query.select('*').single();
-  if (error) throw new Error('Enregistrement impossible. Tes saisies sont conservées à l’écran ; réessaie.');
+  const { data, error } = await query.select('*').abortSignal(AbortSignal.timeout(15000)).single();
+  if (error || !data) throw new Error('Enregistrement impossible. Tes saisies sont conservées à l’écran ; réessaie.');
   return data as Workout;
 }

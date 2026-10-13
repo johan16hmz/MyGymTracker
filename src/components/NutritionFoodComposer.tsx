@@ -8,11 +8,14 @@ import type { FoodCandidate } from '../nutritionFood';
 import { DecimalInput } from './DecimalInput';
 import { Icon } from './Icon';
 import { NutritionModal } from './NutritionModal';
+import { foodHistory,foodHistoryKey } from '../nutritionHistory';
+import type { FoodHistoryEntry } from '../nutritionHistory';
 
 const format = (value:number) => rounded(value).toLocaleString(locale());
 export const mealNames: Record<Meal,string> = {breakfast:'Petit-déjeuner',lunch:'Déjeuner',snack:'En-cas',dinner:'Dîner'};
 const rounded = (value:number) => Math.round(value*10)/10;
-export function FoodComposer({meal,existing,recent,onSave,onClose,renderScanner}: {meal:Meal;existing?:FoodEntry;recent:FoodEntry[];onSave:(entry:FoodEntry)=>Promise<void>;onClose:()=>void;renderScanner:(onCode:(code:string)=>void,onError:(message:string)=>void)=>ReactNode}) {
+export function FoodComposer({meal,existing,initial,recent,onSave,onClose,renderScanner}: {meal:Meal;existing?:FoodEntry;initial?:FoodEntry;recent:FoodHistoryEntry[];onSave:(entry:FoodEntry)=>Promise<void>;onClose:()=>void;renderScanner:(onCode:(code:string)=>void,onError:(message:string)=>void)=>ReactNode}) {
+  const starting=existing ?? initial;
   const language = useLanguage();
   const [mode,setMode] = useState<'search'|'barcode'|'manual'>('search');
   const [scope,setScope] = useState<'all'|'common'|'brands'|'recent'>('all');
@@ -26,12 +29,12 @@ export function FoodComposer({meal,existing,recent,onSave,onClose,renderScanner}
   const [barcode,setBarcode] = useState('');
   const [error,setError] = useState('');
   const [saving,setSaving] = useState(false);
-  const [selected,setSelected] = useState<FoodCandidate | undefined>(existing?.food);
-  const [name,setName] = useState(existing?.food.name ?? '');
-  const [brand,setBrand] = useState(existing?.food.brand ?? '');
-  const [unit,setUnit] = useState<'g'|'ml'>(existing?.food.unit ?? 'g');
-  const [quantity,setQuantity] = useState(String(existing?.quantity ?? 100));
-  const [values,setValues] = useState(() => ['kcal100','protein100','carbs100','fat100','fiber100'].map(key => existing?.food[key as keyof Food]?.toString() ?? ''));
+  const [selected,setSelected] = useState<FoodCandidate | undefined>(starting?.food);
+  const [name,setName] = useState(starting?.food.name ?? '');
+  const [brand,setBrand] = useState(starting?.food.brand ?? '');
+  const [unit,setUnit] = useState<'g'|'ml'>(starting?.food.unit ?? 'g');
+  const [quantity,setQuantity] = useState(String(starting?.quantity ?? 100));
+  const [values,setValues] = useState(() => ['kcal100','protein100','carbs100','fat100','fiber100'].map(key => starting?.food[key as keyof Food]?.toString() ?? ''));
   const abortRef = useRef<AbortController | undefined>(undefined);
   const autoSearchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastBrandSearchAt = useRef(0);
@@ -55,7 +58,8 @@ export function FoodComposer({meal,existing,recent,onSave,onClose,renderScanner}
     cancelLookup();setSelected(food);setMode('search');setError('');setScanning(false);
     setName(language === 'en' && food.nameEn ? food.nameEn : food.name);setBrand(food.brand ?? '');setUnit(food.unit);
     setValues([food.kcal100,food.protein100,food.carbs100,food.fat100,food.fiber100].map(value=>value?.toString() ?? ''));
-    setQuantity(String(defaultPortions(food)[0].quantity));
+    const previous=foodHistory(recent).find(item=>item.key===foodHistoryKey(food));
+    setQuantity(String(previous?.entry.quantity ?? defaultPortions(food)[0].quantity));
   };
   const selectResult = async (food:FoodCandidate) => {
     const missing=[food.kcal100,food.protein100,food.carbs100,food.fat100].some(value=>value===null);
@@ -87,7 +91,8 @@ export function FoodComposer({meal,existing,recent,onSave,onClose,renderScanner}
     catch(error){if(version===searchVersion.current)setError(error instanceof Error?t(error.message):t('Recherche indisponible.'));}
     finally{if(version===searchVersion.current)setLookupBusy(false);}
   };
-  const recentFoods = recent.filter((entry,index)=>recent.findIndex(other=>(other.food.barcode || other.food.id || `${other.food.name}|${other.food.brand}`)===(entry.food.barcode || entry.food.id || `${entry.food.name}|${entry.food.brand}`))===index).map(entry=>entry.food);
+  const historyItems=foodHistory(recent);
+  const recentFoods=historyItems.map(item=>item.entry.food);
   const suggestions = query.trim() ? filterFoodCatalog(catalog,query) : ['Banane chair crue','Poulet filet grillé','Riz blanc cuit','Flocon avoine','Yaourt nature','Œuf dur'].flatMap(term=>filterFoodCatalog(catalog,term).slice(0,1));
   const includesBrands = scope==='all' || scope==='brands';
   const awaitingBrands = includesBrands && query.trim().length>=3 && !brandsSearched && !error;
@@ -112,7 +117,8 @@ export function FoodComposer({meal,existing,recent,onSave,onClose,renderScanner}
         {(lookupBusy || awaitingBrands) && displayed.length>0 && <p className="nutri-hint" role="status">{t('Recherche des produits de marque…')}</p>}
         {scope==='all' && brandsSearched && !results.length && displayed.length>0 && <p className="nutri-hint" role="status">{t('Aucun produit emballé trouvé pour ce nom ou cette marque.')}</p>}
         {(catalogBusy && (scope==='all' || scope==='common')) || ((lookupBusy || awaitingBrands) && !displayed.length) ? <div className="nutri-search-empty" role="status"><span className="loading-spinner"/>{t('Recherche…')}</div> : <div className="nutri-search-results" aria-live="polite">{displayed.map((food,index)=>{
-          const portion=defaultPortions(food)[0];
+          const previous=scope==='recent'?historyItems.find(item=>item.key===foodHistoryKey(food)):undefined;
+          const portion=previous?{quantity:previous.entry.quantity,label:t('Dernière quantité')}:defaultPortions(food)[0];
           const kindLabel=foodKindLabel(food);
           return <button type="button" key={`${food.id || food.barcode || food.name}-${index}`} className="nutri-food-result" disabled={lookupBusy} onClick={()=>void selectResult(food)}>
             <span className="nutri-food-avatar"><Icon name="nutrition" size={22}/></span><span className="nutri-food-result-copy"><small className={food.brand?'nutri-food-brand':undefined}>{food.brand ? food.brand : t(foodBrandLabel(food))}</small><strong>{language==='en' && food.nameEn ? food.nameEn : food.name}</strong>{kindLabel && <span className="nutri-food-kind">{t(kindLabel)}</span>}<small>{portion.quantity} {food.unit}{food.servingQuantity ? ` · ${t('Portion de l’étiquette')}`:''}</small><span>{[food.kcal100,food.protein100,food.carbs100,food.fat100].some(value=>value===null)?t('Valeurs nutritionnelles à compléter'):<>{food.protein100===null?'—':format(food.protein100*portion.quantity/100)} g {t('protéines')} · {food.fiber100===undefined?'—':format(food.fiber100*portion.quantity/100)} g {t('fibres')}</>}</span></span><span className="nutri-food-result-end"><strong>{food.kcal100===null?'—':Math.round(food.kcal100*portion.quantity/100)} <small>kcal</small></strong><span className="nutri-plus">+</span></span>

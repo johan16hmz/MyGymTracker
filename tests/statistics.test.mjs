@@ -5,9 +5,10 @@ import ts from 'typescript';
 
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
-const statisticsUrl=compile(readFileSync(new URL('../src/statistics.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
+const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
+const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
 const {buildStatistics,loadPoints,strengthLogs,weightPoints,profileWithWeightHistory,weekStart,validDate}=await import(statisticsUrl);
-const fixtureUrl=compile(readFileSync(new URL('./statistics-fixture.ts',import.meta.url),'utf8').replaceAll("from '../src/statistics';",`from ${JSON.stringify(statisticsUrl)};`).replaceAll("from '../src/nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
+const fixtureUrl=compile(readFileSync(new URL("./statistics-fixture.ts",import.meta.url),"utf8").replaceAll("from '../src/statistics';",`from ${JSON.stringify(statisticsUrl)};`).replaceAll("from '../src/nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from '../src/trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
 const {statisticsFixture}=await import(fixtureUrl);
 const today='2026-10-09';
 

@@ -5,14 +5,19 @@ import ts from 'typescript';
 
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
-const statisticsUrl=compile(readFileSync(new URL('../src/statistics.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
-let calls=[];let record;let health={data:null,error:{code:'PGRST205'}};let written;
+const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
+const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
+let calls=[];let record;let health={data:null,error:{code:'PGRST205'}};let written;let historyRecords=[];let page;
 globalThis.nutritionTestClient={from(table){
   const query={
     select(columns){calls.push({table,operation:'select',columns});return query;},
     eq(column,value){calls.push({table,operation:'eq',column,value});return query;},
     update(payload){written=payload;calls.push({table,operation:'update'});return query;},
     insert(payload){written=payload;calls.push({table,operation:'insert'});return query;},
+    order(column,options){calls.push({table,operation:'order',column,...options});return query;},
+    range(start,end){page=[start,end];calls.push({table,operation:'range',start,end});return query;},
+    abortSignal(){return query;},
+    then(resolve,reject){return Promise.resolve({data:historyRecords.slice(page[0],page[1]+1),error:null}).then(resolve,reject);},
     async limit(){return {data:record?[record]:[],error:null};},
     async maybeSingle(){return health;},
     async single(){return {data:{id:'saved',...written},error:null};},
@@ -20,7 +25,7 @@ globalThis.nutritionTestClient={from(table){
   return query;
 }};
 const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
-const {loadNutritionDay,saveNutritionDay,saveNutritionProfile}=await import(compile(source));
+const {loadNutritionDay,saveNutritionDay,saveNutritionProfile,loadRecentFoods}=await import(compile(source));
 const date='2026-10-07';
 
 test('nutrition remains usable before the optional Health migration, with owner and date filters',async()=>{
@@ -62,4 +67,12 @@ test('saving a profile retains the latest server weight history and records toda
   assert.equal(written.exercises[0].id,'profile-data');
   assert.ok(calls.some(call=>call.column==='id' && call.value==='profile'));
   assert.ok(calls.some(call=>call.column==='user_id' && call.value==='owner-a'));
+});
+test('food history paginates all owner journals, including older than fourteen days',async()=>{
+  calls=[];historyRecords=Array.from({length:501},(_,i)=>({id:`day-${i}`,date:'2026-08-01',exercises:[{nutritionDay:{entries:[{id:`food-${i}`,quantity:65,addedAt:'2026-08-01T08:00:00Z',food:{name:'Avoine'}}]}}]}));
+  const result=await loadRecentFoods('owner-a');
+  assert.equal(result.length,501);assert.equal(result[500].diaryDate,'2026-08-01');
+  assert.deepEqual(calls.filter(call=>call.operation==='range').map(call=>[call.start,call.end]),[[0,499],[500,999]]);
+  assert.equal(calls.filter(call=>call.column==='user_id' && call.value==='owner-a').length,2);
+  assert.equal(calls.filter(call=>call.column==='name' && call.value==='__nutrition_day__').length,2);
 });

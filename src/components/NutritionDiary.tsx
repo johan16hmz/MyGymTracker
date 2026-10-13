@@ -19,9 +19,10 @@ interface Props {
   focusWeight?:boolean;
   onWeightEditingChange?:(editing:boolean)=>void;
   onWeight?:(weightKg:number)=>Promise<void>;
+  onHistory?:()=>void;
 }
 
-export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onProfile,onAdd,onEdit,onRemove,onSteps,onWater,onRefresh,onHealthConnect,onWeight,focusWeight,onWeightEditingChange}:Props) {
+export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onProfile,onAdd,onEdit,onRemove,onSteps,onWater,onRefresh,onHealthConnect,onWeight,focusWeight,onWeightEditingChange,onHistory}:Props) {
   useLanguage();
   const [health,setHealth]=useState(false);
   const [stepEditor,setStepEditor]=useState(false);
@@ -53,6 +54,7 @@ export function NutritionDiary({profile,day,date,busy,loading,error,onDate,onPro
         <div className="nutri-nutrients">{nutrients.map(nutrient=><div className={`nutri-nutrient ${nutrient.color}`} key={nutrient.color}><span>{t(nutrient.label)}</span><strong>{format(nutrient.value,1)} <small>g</small></strong><div className="nutri-meter"><span style={{width:`${Math.min(100,nutrient.percent)}%`}}/></div><small>{nutrient.color==='fiber'?`${t('Repère')} ${fiberGoal} g${missingFiber?` · ${t('partiel')}`:''}`:`${format(nutrient.percent)} % ${t('de l’objectif kcal')}`}</small></div>)}</div>
         {missingFiber>0 && <p className="nutri-hint nutri-fiber-warning">{t('Total de fibres partiel : valeurs absentes pour')} {missingFiber} {t(missingFiber===1?'aliment.':'aliments.')}</p>}
       </section>
+      {onHistory && <section className="nutri-history-banner"><div><p className="eyebrow">{t('TES HABITUDES')}</p><h2>{t('Déjà mangé ? Retrouve-le.')}</h2><p>{t('Marques, dernières quantités et aliments habituels réunis au même endroit.')}</p></div><button className="btn btn-secondary" disabled={disabled} onClick={onHistory}><Icon name="calendar" size={18}/>{t('Historique alimentaire')}</button></section>}
       <div className="nutri-diary-layout"><div className="nutri-meals"><div className="nutri-section-title"><h2>{t('Mes repas')}</h2><span>{day.entries.length} {t('aliments aujourd’hui')}</span></div>{meals.map((meal,index)=>{
         const entries=day.entries.filter(entry=>entry.meal===meal);const amounts=sumEntries(entries);
         return <section className="nutri-meal-card" key={meal}><header><div className={`nutri-meal-avatar meal-${index}`}><Icon name="nutrition" size={23}/></div><div className="nutri-meal-heading"><h3>{t(mealNames[meal])}</h3><span>{format(Math.round(amounts.kcal))} kcal {entries.length>0 && `· ${format(amounts.protein,1)} g ${t('protéines')}`}</span></div><button className="nutri-add-circle" disabled={disabled} aria-label={`${t('Ajouter un aliment')} · ${t(mealNames[meal])}`} onClick={()=>onAdd(meal)}><Icon name="plus" size={21}/></button></header>

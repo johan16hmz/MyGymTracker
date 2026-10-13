@@ -50,6 +50,7 @@ export function calculateWeight(target: number, reps: number, rpe: number, step:
 }
 
 export interface StrengthPerformance {
+  bodyWeightKg?: number;
   weight: number;
   reps: number;
   rpe: number;

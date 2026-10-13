@@ -10,6 +10,7 @@ export interface Set {
 }
 
 export interface Exercise {
+  trainingSession?: TrainingSession;
   workoutUpdatedAt?: string;
   strengthBlock?: StrengthBlock;
   nutritionProfile?: NutritionProfile;
@@ -17,6 +18,25 @@ export interface Exercise {
   id: string;
   name: string;
   sets: Set[];
+}
+
+export interface TrainingSession {
+  version: 1;
+  id: string;
+  source: 'workout' | 'strength';
+  sourceId: string;
+  name: string;
+  date: string;
+  recordedAt: string;
+  note: string;
+  bodyWeightKg?: number;
+  week?: number;
+  exercises: {
+    id: string;
+    name: string;
+    weighted: boolean;
+    sets: { weight: number; reps: number; rpe?: number; prescriptionId?: string }[];
+  }[];
 }
 
 export interface Workout {

@@ -37,14 +37,14 @@ export async function getUserWorkouts(userId: string) {
   if (!check.success) return { success: false as const, error: check.error, data: [] as Workout[] };
 
   try {
-    const { data, error } = await check.client
-      .from('workouts')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-
-    if (error) throw error;
-    return { success: true, data: sortWorkoutsByLastModified((data as Workout[]).filter(workout => !isNutritionRecord(workout))) };
+    const records: Workout[]=[];
+    for(let offset=0;;offset+=500) {
+      const {data,error}=await check.client.from('workouts').select('*').eq('user_id',userId).order('id',{ascending:true}).range(offset,offset+499).abortSignal(AbortSignal.timeout(15000));
+      if(error)throw error;
+      records.push(...(data ?? []) as Workout[]);
+      if(!data || data.length<500)break;
+    }
+    return { success: true, data: sortWorkoutsByLastModified(records.filter(workout => !isNutritionRecord(workout))) };
   } catch (error) {
     console.error('Erreur récupération séances:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue', data: [] as Workout[] };

@@ -7,6 +7,9 @@ import type { Workout } from '../types';
 import { DecimalInput } from './DecimalInput';
 import { FoodComposer } from './NutritionFoodComposer';
 import { NutritionDiary } from './NutritionDiary';
+import { NutritionFoodHistory } from './NutritionFoodHistory';
+import { mergeFoodHistory } from '../nutritionHistory';
+import type { FoodHistoryEntry } from '../nutritionHistory';
 
 const Scanner=lazy(()=>import('./NutritionScanner').then(module=>({default:module.NutritionScanner})));
 const round = (value: number) => Math.round(value * 10) / 10;
@@ -88,13 +91,17 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   const [profileRecord,setProfileRecord]=useState<Workout>();
   const [date,setDate]=useState(localDate());
   const [day,setDay]=useState<NutritionDay>({date:localDate(),entries:[]});
-  const [recent,setRecent]=useState<FoodEntry[]>([]);
+  const [recent,setRecent]=useState<FoodHistoryEntry[]>([]);
+  const [historyOpen,setHistoryOpen]=useState(false);
+  const [historyLoading,setHistoryLoading]=useState(true);
+  const [historyError,setHistoryError]=useState('');
+  const [historyReload,setHistoryReload]=useState(0);
   const [loadingProfile,setLoadingProfile]=useState(true);
   const [loadingDay,setLoadingDay]=useState(true);
   const [saving,setSaving]=useState(false);
   const [editingProfile,setEditingProfile]=useState(false);
   const [openWeight,setOpenWeight]=useState(focusWeight);
-  const [composer,setComposer]=useState<{meal:Meal;entry?:FoodEntry}>();
+  const [composer,setComposer]=useState<{meal:Meal;entry?:FoodEntry;initial?:FoodEntry}>();
   const [profileError,setProfileError]=useState('');
   const [dayError,setDayError]=useState('');
   const [reload,setReload]=useState(0);
@@ -104,19 +111,23 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   const editing=useRef(false);
   const weightEditing=useRef(false);
   scope.current=userId+'|'+date;
-  editing.current=!!composer || editingProfile;
+  editing.current=!!composer || editingProfile || historyOpen;
   useEffect(()=>{
     let active=true;setLoadingProfile(true);setProfileError('');
     void loadNutritionProfile(userId).then(result=>{if(active){setProfile(result.profile);setProfileRecord(result.record);}}).catch(error=>{if(active)setProfileError(error.message);}).finally(()=>{if(active)setLoadingProfile(false);});
-    void loadRecentFoods(userId).then(value=>{if(active)setRecent(value);}).catch(()=>{/* Recent foods are optional; the search remains available. */});
     return()=>{active=false;};
   },[userId,profileReload]);
+  useEffect(()=>{
+    let active=true;setRecent([]);setHistoryLoading(true);setHistoryError('');
+    void loadRecentFoods(userId).then(value=>{if(active)setRecent(value);}).catch(error=>{if(active)setHistoryError(error.message);}).finally(()=>{if(active)setHistoryLoading(false);});
+    return()=>{active=false;};
+  },[userId,historyReload]);
   useEffect(()=>{
     let active=true;setLoadingDay(true);setDayError('');
     void loadNutritionDay(userId,date).then(result=>{if(active)setDay(result.day);}).catch(error=>{if(active)setDayError(error.message);}).finally(()=>{if(active)setLoadingDay(false);});
     return()=>{active=false;};
   },[userId,date,reload]);
-  useEffect(()=>{setComposer(undefined);setEditingProfile(false);},[userId,date]);
+  useEffect(()=>{setComposer(undefined);setHistoryOpen(false);setEditingProfile(false);},[userId,date]);
   useEffect(()=>{
     // Pick up server-side Health deliveries on return to the app, without
     // replacing open form inputs or polling while the app is in the background.
@@ -140,7 +151,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
       const latest=await loadNutritionDay(userId,date);
       if(scope.current!==owner)throw new Error(t('La journée a changé. Réessaie.'));
       const next=change(latest.day);await saveNutritionDay(userId,next,latest.record);
-      if(scope.current===owner){setDay(next);setRecent(previous=>[...next.entries,...previous.filter(item=>!next.entries.some(entry=>entry.id===item.id))]);}
+      if(scope.current===owner){setDay(next);setRecent(previous=>mergeFoodHistory(previous,next.date,next.entries));}
     }finally{busy.current=false;setSaving(false);}
   };
   if(loadingProfile)return <div className="loading-panel" role="status"><span className="loading-spinner"/>{t('Chargement de ton journal nutrition…')}</div>;
@@ -148,6 +159,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   if(!profile || editingProfile)return <section className="nutrition-page"><div className="nutrition-page-header"><p className="eyebrow">NUTRITION</p><h1>{t('Mange avec intention.')}</h1><p>{t('Ton objectif, tes repas, ta progression.')}</p></div><ProfileForm initial={profile} saving={saving} onSave={persistProfile} onCancel={profile?()=>setEditingProfile(false):undefined}/></section>;
   return <>
     <NutritionDiary profile={profile} day={day} date={date} busy={saving} loading={loadingDay} error={dayError} focusWeight={openWeight}
+      onHistory={()=>setHistoryOpen(true)}
       onDate={next=>{if(!busy.current){setOpenWeight(false);setDate(next);}}} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})}
       onRemove={entry=>{if(confirm(t('Retirer cet aliment du journal ?')))void persistDay(latest=>({...latest,entries:latest.entries.filter(item=>item.id!==entry.id)})).catch(error=>setDayError(error.message));}}
       onSteps={count=>persistDay(latest=>({...latest,steps:{count,source:'manual',updatedAt:new Date().toISOString()}}))}
@@ -155,7 +167,8 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
       onWeight={weightKg=>persistDay(latest=>({...latest,weightKg}))}
       onWeightEditingChange={active=>{weightEditing.current=active;}}
       onRefresh={()=>setReload(value=>value+1)}/>
-    {composer && <FoodComposer key={composer.entry?.id ?? composer.meal} meal={composer.meal} existing={composer.entry} recent={recent}
+    {historyOpen && <NutritionFoodHistory entries={recent} loading={historyLoading} error={historyError} onRetry={()=>setHistoryReload(value=>value+1)} onClose={()=>setHistoryOpen(false)} onSelect={(entry,meal)=>{setHistoryOpen(false);setComposer({meal,initial:entry});}}/>}
+    {composer && <FoodComposer key={composer.entry?.id ?? composer.initial?.id ?? composer.meal} meal={composer.meal} existing={composer.entry} initial={composer.initial} recent={recent}
       onSave={entry=>persistDay(latest=>({...latest,entries:[...latest.entries.filter(item=>item.id!==entry.id),entry]}))}
       onClose={()=>setComposer(undefined)} renderScanner={(onCode,onError)=><Suspense fallback={<p role="status">{t('Chargement de la caméra…')}</p>}><Scanner onCode={onCode} onError={onError}/></Suspense>}/>}
   </>;

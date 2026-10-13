@@ -97,7 +97,7 @@ function normalizeWorkout(input: z.infer<typeof workoutSchema>) {
 async function fetchWorkouts(client: SupabaseClient, userId: string) {
   const { data, error } = await client.from('workouts').select('*').eq('user_id', userId).order('date', { ascending: false });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME);
+  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME && workout.name !== '__training_session__');
 }
 
 const nutritionProfileSchema = z.object({

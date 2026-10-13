@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { nutritionEnglish } from './nutritionEnglish';
 import { statisticsEnglish } from './statisticsEnglish';
+import { trainingEnglish } from './trainingEnglish';
 export type Language = 'fr' | 'en';
 export type WeightUnit = 'kg' | 'lb';
 const listeners = new Set<() => void>();
@@ -27,6 +28,7 @@ export function formatWeight(value: number) { const converted = weightUnit === '
 export const english: Record<string, string> = {
   ...nutritionEnglish,
   ...statisticsEnglish,
+  ...trainingEnglish,
   'Mot de passe oublié ?': 'Forgot password?',
   'Retrouve ton accès.': 'Get back on track.',
   'Renseigne ton email. On t’enverra un lien pour réinitialiser ton mot de passe.': 'Enter your email. We’ll send you a link to reset your password.',

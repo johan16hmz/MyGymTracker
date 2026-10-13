@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { buildStatistics } from './statistics';
 import type { WeightUnit } from './i18n';
+import { estimatedOneRM } from './statistics';
 
 type Statistics = ReturnType<typeof buildStatistics>;
 const excelDate = (date: string) => new Date(`${date}T00:00:00Z`);
@@ -34,19 +35,23 @@ export async function createStatisticsWorkbook(stats: Statistics, unit: WeightUn
     return sheet;
   };
   const summary = makeSheet('Synthèse', tr('Bilan de progression','Progress summary'), [tr('Indicateur','Metric'),tr('Valeur','Value'),tr('Unité','Unit')], [42,20,20], tr('Export de la période, tous les exercices.','Period export, all exercises.'));
-  const force = makeSheet('Force', tr('Séries de force réalisées','Logged strength sets'), [tr('Date','Date'),tr('Exercice','Exercise'),tr('Bloc','Block'),`${tr('Charge','Load')} (${unit})`,tr('Répétitions','Repetitions'),'RPE',tr('Type de charge','Load type'),`${tr('Volume','Volume')} (${unit}·reps)`,tr('Note','Note')], [16,24,28,18,16,10,30,22,42], tr('Source : Force. Le volume exclut le poids du corps.','Source: Strength. Volume excludes body weight.'));
+  const force = makeSheet('Force', tr('Séries de force réalisées','Logged strength sets'), [tr('Date','Date'),tr('Exercice','Exercise'),tr('Bloc','Block'),`${tr('Charge','Load')} (${unit})`,tr('Répétitions','Repetitions'),'RPE',tr('Type de charge','Load type'),`${tr('Volume','Volume')} (${unit}·reps)`,tr('Note','Note'),`${tr('Poids du corps','Body weight')} (${unit})`,`${tr('1RM estimé','Estimated 1RM')} (${unit})`], [16,24,28,18,16,10,30,22,42,22,22], tr('Force uniquement. 1RM Epley : 1–10 reps, lest hors poids du corps.','Strength only. Epley 1RM: 1–10 reps, added load excludes body weight.'));
   for (const log of stats.logs) {
-    const row = force.addRow([excelDate(log.date),log.exercise,log.block,weight(log.weight),log.reps,Number.isFinite(log.rpe)?log.rpe:null,log.weighted?tr('Lest ajouté','Added weight'):tr('Charge externe','External load'),null,log.note || null]);
+    const estimate=estimatedOneRM(log);
+    const row = force.addRow([excelDate(log.date),log.exercise,log.block,weight(log.weight),log.reps,Number.isFinite(log.rpe)?log.rpe:null,log.weighted?tr('Lest ajouté','Added weight'):tr('Charge externe','External load'),null,log.note || null,log.weighted && log.bodyWeightKg!==undefined?weight(log.bodyWeightKg):null,null]);
     row.getCell(8).value = { formula: `D${row.number}*E${row.number}`, result: weight(log.weight)*log.reps };
+    const n=row.number;
+    const types=`ISNUMBER(D${n}),ISNUMBER(E${n})${log.weighted?`,ISNUMBER(J${n})`:''}`;
+    const limits=`D${n}>=0,E${n}>=1,E${n}<=10,MOD(E${n},1)=0${log.weighted?`,J${n}>=${weight(25)},J${n}<=${weight(400)}`:''}`;
+    const calculation=log.weighted?`(D${n}+J${n})*(1+E${n}/30)-J${n}`:`D${n}*(1+E${n}/30)`;
+    row.getCell(11).value={formula:`IF(AND(${types}),IF(AND(${limits}),IF(E${n}=1,D${n},${calculation}),""),"")`,result:estimate===undefined?'':weight(estimate)};
   }
   const body = makeSheet('Pesées', tr('Historique du poids','Body weight history'), [tr('Date','Date'),`${tr('Poids','Weight')} (${unit})`], [18,22], tr('Source : Nutrition. Une mesure par jour.','Source: Nutrition. One measurement per day.'));
   for (const point of stats.weights) body.addRow([excelDate(point.date),weight(point.weightKg)]);
   const weeks = makeSheet('Semaines',tr('Régularité hebdomadaire','Weekly consistency'),[tr('Lundi de la semaine','Week starting Monday'),tr('Jours d’entraînement','Training days'),tr('Séries de force','Strength sets'),`${tr('Volume de force','Strength volume')} (${unit}·reps)`],[24,26,24,30],tr('Source : Séances et Force. Jours uniques. Semaines aux extrémités parfois partielles.','Source: Workouts and Strength. Unique days; boundary weeks may be partial.'));
   for (const week of stats.weeks) weeks.addRow([excelDate(week.date),week.days,week.sets,weight(week.volume)]);
-  const sessions = makeSheet('Séances',tr('Séances du journal','Workout journal'),[tr('Date','Date'),tr('Séance','Workout'),tr('Exercice','Exercise'),`${tr('Charge','Load')} (${unit})`,tr('Répétitions','Repetitions')],[18,30,38,18,18],tr('Source : Séances. Séries renseignées uniquement.','Source: Workouts. Logged sets only.'));
-  for (const workout of [...stats.workouts].sort((a,b)=>a.date.localeCompare(b.date))) for (const exercise of workout.exercises) for (const set of exercise.sets) {
-    if (Number.isFinite(set.weight) && set.weight >= 0 && Number.isInteger(set.reps) && set.reps > 0) sessions.addRow([excelDate(workout.date),workout.name,exercise.name,weight(set.weight),set.reps]);
-  }
+  const sessions = makeSheet('Séances',tr('Entraînements validés','Completed training sessions'),[tr('Date','Date'),tr('Modèle utilisé','Template used'),tr('Type','Type'),tr('Note','Note')],[18,34,18,52],tr('Validations uniquement. Les dates de création des modèles sont exclues.','Completions only. Template creation dates are excluded.'));
+  for (const session of [...stats.sessions].sort((a,b)=>a.date.localeCompare(b.date))) sessions.addRow([excelDate(session.date),session.name,session.source==='strength'?tr('Force','Strength'):tr('Séances','Workouts'),session.note || null]);
   summary.addRow([tr('Jours d’entraînement uniques','Unique training days'),stats.trainingDates.length,tr('jours','days')]);
   summary.addRow([tr('Séries de force réalisées','Logged strength sets'),stats.logs.length,tr('séries','sets')]);
   const volumeRow = summary.addRow([tr('Volume de force hors poids du corps','Strength volume excluding body weight'),null,`${unit}·reps`]);
@@ -68,10 +73,9 @@ export async function createStatisticsWorkbook(stats: Statistics, unit: WeightUn
       });
     }
   }
-  for(let index=6;index<=force.rowCount;index++) { force.getCell(`D${index}`).numFmt='#,##0.00';force.getCell(`H${index}`).numFmt='#,##0.00';force.getCell(`F${index}`).numFmt='0.0'; }
+  for(let index=6;index<=force.rowCount;index++) { force.getCell(`D${index}`).numFmt='#,##0.00';force.getCell(`H${index}`).numFmt='#,##0.00';force.getCell(`F${index}`).numFmt='0.0';force.getCell(`J${index}`).numFmt='0.0';force.getCell(`K${index}`).numFmt='#,##0.00'; }
   for(let index=6;index<=body.rowCount;index++)body.getCell(`B${index}`).numFmt='0.0';
   for(let index=6;index<=weeks.rowCount;index++)weeks.getCell(`D${index}`).numFmt='#,##0.00';
-  for(let index=6;index<=sessions.rowCount;index++)sessions.getCell(`D${index}`).numFmt='#,##0.00';
   summary.getCell('B8').numFmt='#,##0.00';summary.getCell('B11').numFmt='0.0';
   summary.views=[{showGridLines:false}];
   // Long context sits above the tables; give it room without merging data cells.

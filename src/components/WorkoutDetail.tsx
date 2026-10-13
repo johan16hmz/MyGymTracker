@@ -7,6 +7,7 @@ interface WorkoutDetailProps {
   onEdit: (workout: Workout) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
+  onComplete?: (workout: Workout) => void;
 }
 
 export function WorkoutDetail({
@@ -14,6 +15,7 @@ export function WorkoutDetail({
   onEdit,
   onDelete,
   onBack,
+  onComplete,
 }: WorkoutDetailProps) {
   useLanguage();
   useWeightUnit();
@@ -77,6 +79,7 @@ export function WorkoutDetail({
       </div>
 
       <div className="detail-actions">
+        {onComplete && <button className="btn btn-primary" onClick={()=>onComplete(workout)}><Icon name="check"/>{t('Séance réalisée')}</button>}
         <button className="btn btn-primary" onClick={() => onEdit(workout)}><Icon name="edit" />{t("Modifier")}</button>
         <button className="btn btn-danger" onClick={handleDelete}><Icon name="trash" />{t("Supprimer")}</button>
       </div>

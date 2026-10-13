@@ -4,11 +4,14 @@ import { test } from 'node:test';
 import ts from 'typescript';
 
 let response;
+let rangeStart=0,rangeEnd=499;
+const ownerFilters=[];
 const payloads = [];
 const query = {
   upsert(payload) { payloads.push(payload); return this; },
-  update(payload) { payloads.push(payload); return this; }, eq() { return this; }, select() { return this; },
-  order() { return Promise.resolve(response); },
+  update(payload) { payloads.push(payload); return this; }, eq(key,value) { ownerFilters.push([key,value]);return this; }, select() { return this; },
+  order() { return this; }, range(start,end) {rangeStart=start;rangeEnd=end;return this;},
+  then(resolve,reject) {return Promise.resolve({...response,data:Array.isArray(response.data)?response.data.slice(rangeStart,rangeEnd+1):response.data}).then(resolve,reject);},
   abortSignal() { return this; }, single() { return Promise.resolve(response); },
 };
 globalThis.draftTestClient = { from: () => query };
@@ -51,4 +54,11 @@ test('le chargement trie aussi les anciennes séances modifiées en tête', asyn
   const modified = { id: 'modified', name: 'Modified', date: '2025-01-01', exercises: [{ id: 'ex', name: 'Bench', sets: [], workoutUpdatedAt: '2026-10-05T12:00:00Z' }] };
   response = { data: [recent, modified], error: null };
   assert.deepEqual((await getUserWorkouts('alice')).data.map(row => row.id), ['modified', 'recent']);
+});
+
+test('les modèles ne disparaissent pas quand l’historique dépasse 500 entrées',async()=>{
+  ownerFilters.length=0;
+  response={data:Array.from({length:501},(_,index)=>({id:`record-${index}`,name:'Test',date:'2026-10-01',exercises:[]})),error:null};
+  const result=await getUserWorkouts('alice');assert.equal(result.data.length,501);
+  assert.equal(ownerFilters.filter(([key,value])=>key==='user_id' && value==='alice').length,2);
 });

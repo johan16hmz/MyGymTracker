@@ -1,8 +1,9 @@
 import { supabase } from './supabaseClient';
 import type { Workout } from './types';
-import type { FoodEntry, NutritionDay, NutritionProfile } from './nutrition';
+import type { NutritionDay, NutritionProfile } from './nutrition';
 import { localDate, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME } from './nutrition';
 import { profileWithWeightHistory } from './statistics';
+import type { FoodHistoryEntry } from './nutritionHistory';
 
 export function isNutritionRecord(workout: Workout) {
   return workout.name === NUTRITION_PROFILE_NAME || workout.name === NUTRITION_DAY_NAME || workout.exercises.some(exercise => !!exercise.nutritionProfile || !!exercise.nutritionDay);
@@ -57,10 +58,16 @@ export async function loadNutritionDay(userId: string, date: string) {
   return { record, day };
 }
 
-export async function loadRecentFoods(userId:string):Promise<FoodEntry[]> {
-  const {data,error}=await client().from('workouts').select('exercises').eq('user_id',userId).eq('name',NUTRITION_DAY_NAME).order('date',{ascending:false}).limit(14);
-  if(error)throw new Error(error.message);
-  return (data ?? []).flatMap(record=>(record.exercises as Workout['exercises']).flatMap(exercise=>exercise.nutritionDay?.entries ?? [])).sort((a,b)=>b.addedAt.localeCompare(a.addedAt));
+export async function loadRecentFoods(userId:string):Promise<FoodHistoryEntry[]> {
+  const entries:FoodHistoryEntry[]=[];
+  // Owner filtering on every page; no 14-day cut-off or database row-limit loss.
+  for(let offset=0;;offset+=500){
+    const {data,error}=await client().from('workouts').select('id,date,exercises').eq('user_id',userId).eq('name',NUTRITION_DAY_NAME).order('date',{ascending:false}).order('id',{ascending:false}).range(offset,offset+499).abortSignal(AbortSignal.timeout(15000));
+    if(error)throw new Error('Impossible de charger l’historique alimentaire. Réessaie.');
+    for(const record of data ?? [])for(const exercise of record.exercises as Workout['exercises'])for(const entry of exercise.nutritionDay?.entries ?? [])entries.push({...entry,diaryDate:record.date});
+    if(!data || data.length<500)break;
+  }
+  return entries;
 }
 
 export async function healthSyncStatus() {

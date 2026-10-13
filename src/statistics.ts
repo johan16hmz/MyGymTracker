@@ -1,17 +1,19 @@
 import type { Workout } from './types';
 import type { NutritionDay, NutritionProfile } from './nutrition';
 import { localDate } from './nutrition';
+import { trainingSessions, validTrainingDate } from './trainingSessions';
 
 export type StatsPeriod = '28' | '84' | '180' | 'all';
 export interface StrengthLog {
   date: string; exerciseId: string; exercise: string; block: string;
   weight: number; reps: number; rpe: number; weighted: boolean; note: string;
+  bodyWeightKg?: number;
 }
 export interface WeightPoint { date: string; weightKg: number }
 export interface StatsSource { workouts: Workout[]; profile?: NutritionProfile; days: NutritionDay[] }
 
 export function validDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
+  return validTrainingDate(value);
 }
 export function shiftDate(date: string, offset: number): string {
   const next = new Date(`${date}T12:00:00Z`);
@@ -32,9 +34,12 @@ export function strengthLogs(workouts: Workout[], today = localDate()): Strength
         if (typeof performance.date !== 'string' || !validDate(performance.date.slice(0, 10)) || !Number.isFinite(Date.parse(performance.date))) continue;
         const date = localDate(new Date(performance.date.length === 10 ? `${performance.date}T12:00:00` : performance.date));
         if (date > today || !Number.isFinite(performance.weight) || performance.weight < 0 || !Number.isInteger(performance.reps) || performance.reps < 1) continue;
-        logs.push({ date, exerciseId: exercise.id, exercise: exercise.name, block: workout.name, weight: performance.weight, reps: performance.reps, rpe: performance.rpe, weighted: exercise.weighted, note: performance.note });
+        logs.push({ date, exerciseId: exercise.id, exercise: exercise.name, block: workout.name, weight: performance.weight, reps: performance.reps, rpe: performance.rpe, weighted: exercise.weighted, note: performance.note, bodyWeightKg:performance.bodyWeightKg });
       }
     }
+  }
+  for (const session of trainingSessions(workouts,today).filter(session=>session.source==='strength')) {
+    for (const exercise of session.exercises) for (const set of exercise.sets) logs.push({date:session.date,exerciseId:exercise.id,exercise:exercise.name,block:session.name,weight:set.weight,reps:set.reps,rpe:set.rpe ?? NaN,weighted:exercise.weighted,note:session.note,bodyWeightKg:session.bodyWeightKg});
   }
   return logs.sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -53,16 +58,35 @@ export function loadPoints(logs: StrengthLog[], exerciseId: string, reps: number
   }
   return [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
+
+// Epley is a repetition-based estimate, not a tested maximum or a target.
+// Singles retain the lifted load; high-repetition sets are intentionally omitted.
+export function estimatedOneRM(log: StrengthLog): number | undefined {
+  if (!Number.isInteger(log.reps) || log.reps<1 || log.reps>10 || !Number.isFinite(log.weight) || log.weight<0) return undefined;
+  const body=log.weighted?log.bodyWeightKg:0;
+  if(body===undefined || !Number.isFinite(body) || (log.weighted && (body<25 || body>400)))return undefined;
+  return log.reps===1?log.weight:(log.weight+body)*(1+log.reps/30)-body;
+}
+
+export function estimatedMaxPoints(logs: StrengthLog[], exerciseId: string) {
+  const days=new Map<string,StrengthLog & {oneRM:number}>();
+  for(const log of logs.filter(log=>log.exerciseId===exerciseId)) {
+    const oneRM=estimatedOneRM(log);if(oneRM===undefined)continue;
+    const previous=days.get(log.date);if(!previous || oneRM>previous.oneRM)days.set(log.date,{...log,oneRM});
+  }
+  return [...days.values()].sort((a,b)=>a.date.localeCompare(b.date));
+}
 export function buildStatistics(source: StatsSource, period: StatsPeriod, today = localDate()) {
-  const allLogs = strengthLogs(source.workouts, today);
   const allWeights = weightPoints(source.profile, source.days, today);
-  const ordinary = source.workouts.filter(workout => !workout.exercises.some(ex => ex.strengthBlock || ex.nutritionDay || ex.nutritionProfile) && validDate(workout.date) && workout.date <= today && workout.exercises.some(ex => ex.sets.some(set => Number.isInteger(set.reps) && set.reps > 0 && Number.isFinite(set.weight) && set.weight >= 0)));
-  const dates = [...allLogs.map(log => log.date), ...allWeights.map(point => point.date), ...ordinary.map(workout => workout.date)].sort();
+  const datedWeights=new Map(allWeights.map(point=>[point.date,point.weightKg]));
+  const allLogs = strengthLogs(source.workouts, today).map(log=>({...log,bodyWeightKg:log.bodyWeightKg ?? datedWeights.get(log.date)}));
+  const allSessions = trainingSessions(source.workouts,today);
+  const dates = [...allLogs.map(log => log.date), ...allWeights.map(point => point.date), ...allSessions.map(session => session.date)].sort();
   const start = period === 'all' ? dates[0] ?? today : shiftDate(today, 1 - Number(period));
   const logs = allLogs.filter(log => log.date >= start);
   const weights = allWeights.filter(point => point.date >= start);
-  const workouts = ordinary.filter(workout => workout.date >= start);
-  const trainingDates = [...new Set([...logs.map(log => log.date), ...workouts.map(workout => workout.date)])].sort();
+  const sessions = allSessions.filter(session => session.date >= start);
+  const trainingDates = [...new Set([...logs.map(log => log.date), ...sessions.map(session => session.date)])].sort();
   const weeks: { date: string; days: number; sets: number; volume: number }[] = [];
   const groupedLogs = new Map<string, StrengthLog[]>();
   for (const log of logs) { const key = weekStart(log.date); groupedLogs.set(key, [...(groupedLogs.get(key) ?? []), log]); }
@@ -81,7 +105,7 @@ export function buildStatistics(source: StatsSource, period: StatsPeriod, today 
     const best = [...exerciseLogs].sort((a, b) => b.weight - a.weight || b.reps - a.reps || b.date.localeCompare(a.date))[0];
     return { ...exercise, best, sets: exerciseLogs.length, volume: exerciseLogs.reduce((sum, log) => sum + log.weight * log.reps, 0) };
   });
-  return { start, today, logs, weights, workouts, trainingDates, weeks, exercises, records, activeWeeks: weeks.filter(week => week.days > 0).length, latestWeight: allWeights.at(-1)?.weightKg ?? source.profile?.weightKg, volume: logs.reduce((sum, log) => sum + log.weight * log.reps, 0) };
+  return { start, today, logs, weights, sessions, trainingDates, weeks, exercises, records, activeWeeks: weeks.filter(week => week.days > 0).length, latestWeight: allWeights.at(-1)?.weightKg ?? source.profile?.weightKg, volume: logs.reduce((sum, log) => sum + log.weight * log.reps, 0) };
 }
 
 export function profileWithWeightHistory(profile: NutritionProfile, previous?: NutritionProfile, date = localDate()): NutritionProfile {

@@ -1,4 +1,8 @@
 .stats-page { --stats-line:#527e45; --stats-weight-line:#bc7842; --stats-bar:#90aa69; animation:arrive .3s ease-out; }
+.stats-page { --stats-estimate-line:#8272af; }
+.stats-estimate-panel { margin-bottom:20px; }
+.stats-training-definition { margin-bottom:20px; }
+:root[data-theme=dark] .stats-page { --stats-estimate-line:#bca7e7; }
 .stats-heading { display:flex; justify-content:space-between; align-items:center; gap:24px; margin-bottom:28px; }
 .stats-heading h1 { font-size:clamp(2rem,3.4vw,3.1rem); }
 .stats-heading .eyebrow { margin-bottom:12px; }

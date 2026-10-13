@@ -1,24 +1,30 @@
 import { t, useLanguage, locale, useWeightUnit } from '../i18n';
 import type { WeightUnit } from '../i18n';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Workout } from '../types';
 import { createStrengthBlock, DEFAULT_SET_REDUCTION_PERCENT, DEFAULT_STRENGTH_SETS, DEFAULT_STRENGTH_EXERCISES, getCurrentStrengthBlockIndex, getStrengthWeeks, MAX_BLOCK_WEEKS, MAX_STRENGTH_SETS, nextCurrentStrengthRank, planStrengthLoads, RPE_TABLE, STRENGTH_EXERCISES, strengthVolumeFactor, updateStrengthLoads, updateStrengthSets, WEEK_RPES } from '../strength';
-import type { StrengthBlock, StrengthExercise, StrengthExerciseId, StrengthPrescription, StrengthPerformance, StrengthSetsByReps } from '../strength';
+import type { StrengthBlock, StrengthExercise, StrengthExerciseId, StrengthPrescription, StrengthSetsByReps } from '../strength';
 import { getStrengthBlock, saveStrengthBlock } from '../strengthService';
 import { convertWeightInput, parseDecimalInput, toDisplayWeight, toStoredWeight } from '../weightUnits';
+import { trainingSessions } from '../trainingSessions';
+import { TrainingHistory } from './TrainingHistory';
+import { strengthLogs } from '../statistics';
+import { StrengthWeightInput } from './StrengthWeightInput';
 
 interface Props {
   userId: string;
   workouts: Workout[];
   onSaved: (workout: Workout) => void;
   onPendingChange: (pending: boolean) => void;
+  onRecordSession?: (workout:Workout,week:number,prescriptionId?:string) => void;
+  onRemoveSession?: (id:string) => Promise<void>;
+  saveBlock?: typeof saveStrengthBlock;
 }
 
 const n = (value: number) => value.toLocaleString(locale());
 const weightText = (kg: number, unit: WeightUnit) => `${n(toDisplayWeight(kg, unit))} ${unit}`;
 const emptyTargets = (): Record<string, string> => Object.fromEntries(STRENGTH_EXERCISES.map(ex => [ex.id, '0']));
 const decimalPattern = '(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)';
-const alignedToStep = (value: number, step: number) => Math.abs(value / step - Math.round(value / step)) < 1e-8;
 
 function StrengthSummaryTable({ block, caption, unit }: { block: StrengthBlock; caption: string; unit: WeightUnit }) {
   const weeks = getStrengthWeeks(block);
@@ -32,45 +38,6 @@ function StrengthSummaryTable({ block, caption, unit }: { block: StrengthBlock; 
   </table></div>;
 }
 
-function PerformanceForm({ prescription, onAdd }: {
-  prescription: StrengthPrescription;
-  onAdd: (performance: StrengthPerformance) => void;
-}) {
-  useLanguage();
-  const weightUnit = useWeightUnit();
-  const [open, setOpen] = useState(false);
-  const [inputUnit, setInputUnit] = useState(weightUnit);
-  const [weightInput, setWeightInput] = useState(String(toDisplayWeight(prescription.weight, weightUnit)));
-  const [rpeInput, setRpeInput] = useState(String(prescription.rpe));
-  const parsedWeight = parseDecimalInput(weightInput);
-  const parsedRpe = parseDecimalInput(rpeInput);
-  const validWeight = Number.isFinite(parsedWeight) && parsedWeight >= 0;
-  const validRpe = Number.isFinite(parsedRpe) && parsedRpe >= 1 && parsedRpe <= 10 && alignedToStep(parsedRpe, 0.5);
-  useEffect(() => {
-    if (weightUnit === inputUnit) return;
-    setWeightInput(value => convertWeightInput(value, inputUnit, weightUnit));
-    setInputUnit(weightUnit);
-  }, [weightUnit, inputUnit]);
-  return <>
-    <button type="button" className="btn btn-secondary btn-small" onClick={() => setOpen(!open)}>
-      {open ? t("Annuler la saisie") : t("+ Enregistrer une série")}
-    </button>
-    {open && <form className="force-performance" onSubmit={event => {
-      event.preventDefault();
-      if (!validWeight || !validRpe) return;
-      const values = new FormData(event.currentTarget);
-      onAdd({ weight: toStoredWeight(parsedWeight, inputUnit), reps: Number(values.get('reps')), rpe: parsedRpe, note: String(values.get('note')), date: new Date().toISOString() });
-      setWeightInput(String(toDisplayWeight(prescription.weight, inputUnit)));
-      setOpen(false);
-    }}>
-      <label>{t("Poids réalisé")} ({inputUnit})<input name="weight" type="text" inputMode="decimal" pattern={decimalPattern} value={weightInput} onChange={event => setWeightInput(event.target.value)} required /></label>
-      <label>{t("Reps réalisées")}<input name="reps" type="number" min="1" step="1" defaultValue={prescription.reps} required /></label>
-      <label>{t("RPE ressenti")}<input name="rpe" type="text" inputMode="decimal" pattern={decimalPattern} value={rpeInput} onChange={event => setRpeInput(event.target.value)} required /></label>
-      <label className="force-note">Note<input name="note" placeholder={t("Ex. : dur, propre, marge…")} maxLength={500} /></label>
-      <button className="btn btn-primary" type="submit" disabled={!validWeight || !validRpe}>{t("Ajouter au bloc")}</button>
-    </form>}
-  </>;
-}
 
 function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
   exercise: StrengthExercise;
@@ -111,12 +78,12 @@ function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
       <input type="text" inputMode="decimal" pattern={decimalPattern} required disabled={saving} value={reductionInput} onChange={event => setReductionInput(event.target.value)} />
       <small>{t("Réglable de 0 à 5 % selon ton ressenti.")}</small>
     </label>
-    <button className="btn btn-secondary btn-small" type="submit" disabled={!changed || !validInputs || saving}>{t("Recalculer les charges")}</button>
+    <button className="btn btn-secondary btn-small" type="submit" disabled={!changed || !validInputs || saving}>{t("Recalculer et enregistrer")}</button>
     <small>{exercise.weighted ? t("Le poids du corps est commun aux dips, tractions et muscle-ups. Les charges prévues sont recalculées ; les performances enregistrées restent intactes.") : t("Les charges prévues de cet exercice sont recalculées ; les performances enregistrées restent intactes.")}</small>
   </form>;
 }
 
-export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) {
+export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordSession, onRemoveSession, saveBlock = saveStrengthBlock }: Props) {
   useLanguage();
   const weightUnit = useWeightUnit();
   const records = workouts.filter(workout => getStrengthBlock(workout));
@@ -141,6 +108,9 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const savingRef=useRef(false);
+  const latestBlock=useRef(block);
+  latestBlock.current=block;
   useEffect(() => {
     if (weightUnit === entryUnit) return;
     setTargets(previous => Object.fromEntries(Object.entries(previous).map(([id, value]) => [id, convertWeightInput(value, entryUnit, weightUnit)])));
@@ -168,14 +138,16 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   }, [dirty, saving, onPendingChange]);
 
   const persist = async (next: StrengthBlock, title: string, existing?: Workout, successMessage = t("Bloc enregistré dans ton compte.")) => {
+    if(savingRef.current)return;
+    savingRef.current=true;
     setSaving(true); setError(''); setMessage('');
     try {
-      const saved = await saveStrengthBlock(userId, title, next, existing);
+      const saved = await saveBlock(userId, title, next, existing);
       onSaved(saved); setSelected(saved); setBlock(next); setCreating(false); setDirty(false);
       setMessage(successMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Enregistrement impossible. Réessaie."));
-    } finally { setSaving(false); }
+    } finally { savingRef.current=false;setSaving(false); }
   };
 
   const updatePrescription = (id: string, update: Partial<StrengthPrescription>) => {
@@ -187,7 +159,8 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
   const exercise = block?.exercises.find(ex => ex.id === exerciseId) ?? block?.exercises[0];
   const weeks = block ? getStrengthWeeks(block) : [];
   const plannedRows = exercise ? planStrengthLoads(exercise, block?.bodyWeight ?? 0) : [];
-  const completed = block?.exercises.reduce((sum, ex) => sum + ex.prescriptions.filter(row => row.performances.length > 0).length, 0) ?? 0;
+  const sessionsForBlock=trainingSessions(workouts).filter(session=>session.source==='strength' && session.sourceId===selected?.id);
+  const completed = new Set([...(selected?strengthLogs([selected]).map(log=>log.date):[]),...sessionsForBlock.map(session=>session.date)]).size;
 
   return <section className="force-page">
     <div className="force-heading">
@@ -245,12 +218,13 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
           setSelected(record); setBlock(record && getStrengthBlock(record)); setActiveWeek(1); setMessage(''); setError('');
         }}>{records.map(record => <option key={record.id} value={record.id}>{record.name}{hasCurrentChoice && record.id === currentRecord?.id ? ` · ${t("Bloc actuel")}` : ''}</option>)}</select></label>
         <div className="force-toolbar-actions">
-          <span>{completed} / {block.exercises.reduce((sum, ex) => sum + ex.prescriptions.length, 0)} {t("objectifs renseignés")}</span>
+          <span>{completed} {t(completed===1?'jour d’entraînement enregistré':'jours d’entraînement enregistrés')}</span>
           <button type="button" className="btn btn-secondary btn-small" disabled={dirty || saving || (hasCurrentChoice && selected?.id === currentRecord?.id)} onClick={() => {
             if (selected) void persist({ ...block, currentRank: nextCurrentStrengthRank(recordBlocks) }, selected.name, selected, t("Ce bloc s’ouvrira par défaut."));
           }}>{hasCurrentChoice && selected?.id === currentRecord?.id ? t("Bloc actuel") : t("Définir comme bloc actuel")}</button>
         </div>
       </div>
+      {onRecordSession && selected && <section className="force-record-session"><div><strong>{t('Ce que tu as réellement soulevé')}</strong><p>{t('Enregistre un entraînement du jour ou passé. Les charges prévues restent séparées des performances.')}</p></div><button className="btn btn-primary" disabled={dirty || saving} onClick={()=>onRecordSession(selected,activeWeek)}>{t('Saisir mes performances Force')}</button></section>}
       <details key={selected?.id} className="force-panel force-block-summary" open>
         <summary>{t("Récapitulatif du bloc")}</summary>
         <StrengthSummaryTable block={block} caption={t("Charges prévues")} unit={weightUnit} />
@@ -262,8 +236,10 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
       {exercise.weighted && block.bodyWeight === undefined && <p className="force-error" role="status">{t("Ce bloc utilise encore l’ancien calcul. Renseigne ton poids du corps puis recalcule les charges.")}</p>}
       <StrengthLoadEditor key={`${selected?.id}-${exercise.id}-${exercise.target}-${block.bodyWeight}-${exercise.setReductionPercent}`} exercise={exercise} bodyWeight={block.bodyWeight} saving={saving} onApply={(target, bodyWeight, reductionPercent) => {
         try {
-          setBlock(previous => previous && updateStrengthLoads(previous, exercise.id, target, bodyWeight, reductionPercent));
+          const next=updateStrengthLoads(latestBlock.current!, exercise.id, target, bodyWeight, reductionPercent);
+          setBlock(next);
           setDirty(true); setMessage(''); setError('');
+          void persist(next,selected!.name,selected,t('Charges recalculées et enregistrées.'));
         } catch (err) { setError(err instanceof Error ? t(err.message) : t('Vérifie les informations saisies.')); }
       }} />
       <fieldset className="force-editor" disabled={saving}>
@@ -278,19 +254,18 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
               setDirty(true); setMessage('');
             }}>{Array.from({ length: MAX_STRENGTH_SETS }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>
             <small className="force-volume-help">{t("Charge recalculée automatiquement. Base : 3 séries ; réduction par série supplémentaire :")} {n(exercise.setReductionPercent ?? DEFAULT_SET_REDUCTION_PERCENT)} %. {t("Estimation à ajuster selon le RPE ressenti.")}</small>
-            <label>{t("Charge prévue")} ({weightUnit})<input key={`${row.weight}-${weightUnit}`} aria-label={`${t("Charge prévue")} ${t(exercise.name)} ${t("semaine")} ${row.week}, ${row.reps} reps (${weightUnit})`} type="text" inputMode="decimal" pattern={decimalPattern} defaultValue={toDisplayWeight(row.weight, weightUnit)} onBlur={event => {
-              const parsed = parseDecimalInput(event.target.value);
-              if (Number.isFinite(parsed) && parsed >= 0) {
-                if (parsed !== toDisplayWeight(row.weight, weightUnit)) updatePrescription(row.id, { weight: toStoredWeight(parsed, weightUnit) });
-                event.target.value = String(parsed);
-              } else {
-                event.target.value = String(toDisplayWeight(row.weight, weightUnit));
-              }
-            }} /></label>
+            <label>{t("Charge prévue")} ({weightUnit})<StrengthWeightInput weight={row.weight} unit={weightUnit} disabled={saving} label={`${t("Charge prévue")} ${t(exercise.name)} ${t("semaine")} ${row.week}, ${row.reps} reps (${weightUnit})`}
+              onChange={weight=>{if(weight!==row.weight)updatePrescription(row.id,{weight});}}
+              onCommit={weight=>{
+                if(!dirty && weight===row.weight)return;
+                const next={...latestBlock.current!,exercises:latestBlock.current!.exercises.map(ex=>({...ex,prescriptions:ex.prescriptions.map(item=>item.id===row.id?{...item,weight}:item)}))};
+                setBlock(next);setDirty(true);void persist(next,selected!.name,selected,t('Charge enregistrée automatiquement.'));
+              }}/></label>
+            <small className="force-help">{t('Enregistrement automatique en quittant le champ ou avec Entrée.')}</small>
             {row.weight !== plannedRows.find(planned => planned.id === row.id)?.weight && <button className="force-link" onClick={() => {
               updatePrescription(row.id, { weight: plannedRows.find(planned => planned.id === row.id)!.weight });
             }}>{t("Rétablir le calcul RPE")}</button>}
-            <p className="force-help">{row.performances.length} / {row.sets ?? DEFAULT_STRENGTH_SETS} {t("séries enregistrées")}</p>
+            <p className="force-help">{row.performances.length + sessionsForBlock.reduce((sum,session)=>sum+session.exercises.reduce((count,ex)=>count+ex.sets.filter(set=>set.prescriptionId===row.id).length,0),0)} {t('séries dans l’historique')}</p>
             {row.performances.map((perf, perfIndex) => <div className="force-result" key={perfIndex}>
               <strong>{weightText(perf.weight, weightUnit)} × {perf.reps} · RPE {n(perf.rpe)}</strong>
               <small>{new Date(perf.date).toLocaleDateString(locale())}{perf.note && ` · ${perf.note}`}</small>
@@ -298,12 +273,13 @@ export function Strength({ userId, workouts, onSaved, onPendingChange }: Props) 
                 if (confirm(t("Retirer cette performance du bloc ?"))) updatePrescription(row.id, { performances: row.performances.filter((_, i) => i !== perfIndex) });
               }}>{t("Retirer")}</button>
             </div>)}
-            <PerformanceForm key={`${row.id}-${row.weight}`} prescription={row} onAdd={performance => updatePrescription(row.id, { performances: [...row.performances, performance] })} />
+            {onRecordSession && selected && <button type="button" className="btn btn-secondary btn-small" disabled={dirty || saving} onClick={()=>onRecordSession(selected,row.week,row.id)}>{t('Enregistrer ces séries réalisées')}</button>}
           </div>)}
         </section>)}</div>
       </fieldset>
       {(dirty || saving) && <div className="force-save"><span>{t("Modifications à enregistrer")}<small>{t("La date des performances est ajoutée automatiquement.")}</small></span><button className="btn btn-primary" disabled={saving} onClick={() => void persist(block, selected!.name, selected)}>{saving ? t("Enregistrement…") : t("Enregistrer le bloc")}</button></div>}
       {dirty && <p className="force-help">{t("Enregistre le bloc avant de quitter cette page ou de changer de bloc.")}</p>}
+      <TrainingHistory sessions={trainingSessions(workouts).filter(session=>session.source==='strength' && session.sourceId===selected?.id)} onRemove={onRemoveSession}/>
     </>}
 
     <details className="force-panel force-rpe" open>

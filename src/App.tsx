@@ -1,6 +1,10 @@
 import { t, useLanguage } from './i18n';
 import { lazy, Suspense, useState, useEffect, useRef } from 'react';
-import type { Workout } from './types';
+import type { Workout, TrainingSession } from './types';
+import { isTrainingSessionRecord, trainingSessions } from './trainingSessions';
+import { saveTrainingSession, removeTrainingSession } from './trainingSessionService';
+import { TrainingSessionForm } from './components/TrainingSessionForm';
+import { buildStatistics } from './statistics';
 import { WorkoutList } from './components/WorkoutList';
 import { WorkoutForm } from './components/WorkoutForm';
 import { WorkoutDetail } from './components/WorkoutDetail';
@@ -35,6 +39,7 @@ function App() {
   const [loadError, setLoadError] = useState('');
   const [drafts, setDrafts] = useState<WorkoutDraft[]>([]);
   const [savingWorkout, setSavingWorkout] = useState(false);
+  const [sessionEntry, setSessionEntry] = useState<{workout:Workout;week?:number;prescriptionId?:string}>();
   const activeUserId = useRef<string | null>(null);
   useEffect(() => {
     setDrafts(userId ? listWorkoutDrafts(userId) : []);
@@ -49,7 +54,7 @@ function App() {
       if (event === 'PASSWORD_RECOVERY') { setPasswordRecovery(true); setRecoveryInvalid(false); }
       if (activeUserId.current !== (user?.id ?? null)) {
         setView('list'); setSelectedWorkout(null); setWorkouts([]); setDrafts([]); setNutritionWeightFocus(false);
-        setLoadingWorkouts(true); setLoadError('');
+        setLoadingWorkouts(true); setLoadError(''); setSessionEntry(undefined);
       }
       activeUserId.current = user?.id ?? null;
       if (user) {
@@ -133,6 +138,19 @@ function App() {
     setView('create');
   };
 
+  const handleSaveSession = async (session: TrainingSession) => {
+    if (!userId) throw new Error(t('Connecte-toi pour enregistrer ton entraînement.'));
+    const owner=userId;
+    const saved=await saveTrainingSession(owner,session);
+    if(activeUserId.current!==owner)throw new Error(t('La connexion a changé.'));
+    setWorkouts(previous=>previous.some(item=>item.id===saved.id)?previous.map(item=>item.id===saved.id?saved:item):[saved,...previous]);
+  };
+  const handleRemoveSession = async (id:string) => {
+    if(!userId)return;
+    const owner=userId;await removeTrainingSession(owner,id);
+    if(activeUserId.current===owner)setWorkouts(previous=>previous.filter(item=>item.id!==id));
+  };
+
   const handleBackToList = () => {
     if (savingWorkout) return;
     if (strengthPending && !confirm(t("Des modifications du bloc ne sont pas enregistrées. Quitter quand même ?"))) return;
@@ -197,14 +215,18 @@ function App() {
         {view === 'nutrition' && userId && <Suspense fallback={<div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de ton journal nutrition…')}</div>}><Nutrition userId={userId} focusWeight={nutritionWeightFocus} /></Suspense>}
         {(view === 'strength' || view === 'list') && loadingWorkouts && <div className="loading-panel" role="status"><span className="loading-spinner" />{t('Chargement de tes entraînements…')}</div>}
         {(view === 'strength' || view === 'list') && loadError && <p role="alert">{loadError}</p>}
-        {view === 'strength' && userId && !loadingWorkouts && !loadError && <Strength key={userId} userId={userId} workouts={workouts} onPendingChange={setStrengthPending} onSaved={saved => {
+        {view === 'strength' && userId && !loadingWorkouts && !loadError && <Strength key={userId} userId={userId} workouts={workouts} onPendingChange={setStrengthPending} onRecordSession={(workout,week,prescriptionId)=>setSessionEntry({workout,week,prescriptionId})} onRemoveSession={handleRemoveSession} onSaved={saved => {
           setWorkouts(previous => previous.some(workout => workout.id === saved.id)
             ? previous.map(workout => workout.id === saved.id ? saved : workout)
             : [saved, ...previous]);
         }} />}
         {view === 'list' && !loadingWorkouts && !loadError && (
           <WorkoutList
-            workouts={workouts.filter(workout => !getStrengthBlock(workout))}
+            workouts={workouts.filter(workout => !getStrengthBlock(workout) && !isTrainingSessionRecord(workout))}
+            sessions={trainingSessions(workouts)}
+            trainingDays={buildStatistics({workouts,days:[]},'all').trainingDates.length}
+            onComplete={workout=>setSessionEntry({workout})}
+            onRemoveSession={handleRemoveSession}
             onNew={handleNewWorkout}
             onView={handleViewWorkout}
             onEdit={handleEditWorkout}
@@ -218,6 +240,7 @@ function App() {
             onEdit={handleEditWorkout}
             onDelete={handleDeleteWorkout}
             onBack={handleBackToList}
+            onComplete={workout=>setSessionEntry({workout})}
           />
         )}
         {(view === 'create' || view === 'edit') && userId && (
@@ -233,6 +256,7 @@ function App() {
           />
         )}
       </main>
+      {sessionEntry && userId && <TrainingSessionForm key={`${userId}-${sessionEntry.workout.id}`} workout={sessionEntry.workout} initialWeek={sessionEntry.week} initialPrescriptionId={sessionEntry.prescriptionId} onSave={handleSaveSession} onClose={()=>setSessionEntry(undefined)}/>}
       <footer className="app-footer">© {new Date().getFullYear()} MyGymTracker · {t('Tous droits réservés.')}</footer>
     </div>
   );

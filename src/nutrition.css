@@ -191,3 +191,14 @@
 .nutri-weight-form label { display:block; font-size:.78rem; margin:12px 0; }
 .nutri-weight-form input { margin-top:6px; }
 .nutri-weight-form .nutrition-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.nutri-history-banner { display:flex;align-items:center;justify-content:space-between;gap:22px;border:1px solid var(--border);border-radius:24px;padding:24px;background:var(--surface);margin:0 0 24px; }
+.nutri-history-banner .eyebrow { margin:0 0 8px; }
+.nutri-history-banner h2 { font-size:1.3rem;margin:0 0 8px; }
+.nutri-history-banner p:not(.eyebrow) { color:var(--text-muted);font-size:.85rem;margin:0;line-height:1.5; }
+.nutri-history-banner .btn { flex-shrink:0; }
+.nutri-history-controls { display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px;margin:20px 0; }
+.nutri-history-controls label { display:flex;flex-direction:column;gap:8px;font-size:.8rem; }
+.nutri-history-controls select { height:56px; }
+.nutri-history-controls .nutri-search { margin:0;min-height:56px; }
+.nutri-history-more { margin:20px 0 6px;width:100%; }
+@media(max-width:740px) { .nutri-history-banner { flex-direction:column;align-items:flex-start;padding:20px; } .nutri-history-controls { grid-template-columns:1fr;gap:12px; } .nutri-history-controls input,.nutri-history-controls select { font-size:16px; } }
