@@ -95,7 +95,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
               setSelectedTemplate(null);
               setSelections({});
             }}
-          >{t("← Retour aux séances")} </button>
+          ><Icon name="chevron-left" size={18}/>{t("Retour aux séances")} </button>
 
           <h3>{template.name}</h3>
 

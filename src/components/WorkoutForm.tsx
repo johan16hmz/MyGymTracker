@@ -322,7 +322,7 @@ export function WorkoutForm({ userId, workout, workouts = [], onSave, onCancel }
       <div className="exercises-section">
         <div className="section-header">
           <h3>{t("Exercices")}</h3>
-          <button type="button" className="btn btn-secondary" onClick={addExercise}>{t("+ Ajouter un exercice")} </button>
+          <button type="button" className="btn btn-secondary" onClick={addExercise}><Icon name="plus" size={17}/>{t("Ajouter un exercice")} </button>
         </div>
 
         {exercises.length === 0 && <div className="empty-exercises"><Icon name="plus" size={28} /><p>{t('Ta séance commence ici.')}</p><span>{t('Ajoute ton premier exercice pour préparer tes séries.')}</span></div>}
@@ -360,7 +360,7 @@ export function WorkoutForm({ userId, workout, workouts = [], onSave, onCancel }
                   aria-label={t("Monter l'exercice")}
                   title={t("Monter")}
                 >
-                  ↑
+                  <Icon name="arrow-up" size={18}/>
                 </button>
                 <button
                   type="button"
@@ -370,7 +370,7 @@ export function WorkoutForm({ userId, workout, workouts = [], onSave, onCancel }
                   aria-label={t("Descendre l'exercice")}
                   title={t("Descendre")}
                 >
-                  ↓
+                  <Icon name="arrow-down" size={18}/>
                 </button>
               </div>
               <button
@@ -379,13 +379,13 @@ export function WorkoutForm({ userId, workout, workouts = [], onSave, onCancel }
                 onClick={() => removeExercise(exercise.id)}
                 aria-label={t('Supprimer l’exercice')}
               >
-                ×
+                <Icon name="close" size={18}/>
               </button>
             </div>
 
             <div className="exercise-variant-editor">
               <ExerciseVariantPicker exercise={exercise} onChange={id => setExercises(previous => applyDraftReps({ ...initial, exercises: previous }, repsInputValues).exercises.map(item => item.id === exercise.id ? selectExerciseVariant(item,id) : item))}/>
-              <div className="exercise-variant-actions"><button type="button" className="btn btn-small btn-secondary" onClick={() => setVariantEditor({ exerciseId: exercise.id, name: '' })}>{t('+ Ajouter une alternative')}</button>
+              <div className="exercise-variant-actions"><button type="button" className="btn btn-small btn-secondary" onClick={() => setVariantEditor({ exerciseId: exercise.id, name: '' })}><Icon name="plus" size={16}/>{t('Ajouter une alternative')}</button>
                 <button type="button" className="btn btn-small btn-secondary" disabled={!exercise.name.trim()} onClick={()=>setAssociateId(exercise.id)}>{t('Associer un exercice existant')}</button>
               </div>
               {variantEditor?.exerciseId === exercise.id && <div className="exercise-variant-create"><label>{t('Nom de l’alternative')}<input autoFocus maxLength={150} value={variantEditor.name} placeholder={t('Ex. Développé militaire machine')} onChange={event => setVariantEditor({ exerciseId: exercise.id, name: event.target.value })} onKeyDown={event => {if(event.key === 'Enter') event.preventDefault();}}/></label><button type="button" className="btn btn-primary btn-small" disabled={!variantEditor.name.trim() || !exercise.name.trim()} onClick={() => { setExercises(previous => applyDraftReps({...initial,exercises:previous},repsInputValues).exercises.map(item => item.id === exercise.id ? addExerciseVariant(item,variantEditor.name) : item)); setVariantEditor(undefined); }}>{t('Créer l’alternative')}</button><button type="button" className="btn btn-small btn-secondary" onClick={() => setVariantEditor(undefined)}>{t('Annuler')}</button><small>{t('Même nombre de séries et répétitions au départ ; les charges de la nouvelle variante restent à renseigner.')}</small></div>}
@@ -458,7 +458,7 @@ export function WorkoutForm({ userId, workout, workouts = [], onSave, onCancel }
                     onClick={() => removeSet(exercise.id, set.id)}
                     aria-label={`${t('Supprimer la série')} ${setIndex + 1}`}
                   >
-                    ×
+                    <Icon name="close" size={18}/>
                   </button>
                 </div>
               ))}
@@ -468,7 +468,7 @@ export function WorkoutForm({ userId, workout, workouts = [], onSave, onCancel }
               type="button"
               className="btn btn-small"
               onClick={() => addSet(exercise.id)}
-            >{t("+ Ajouter une série")} </button>
+            ><Icon name="plus" size={16}/>{t("Ajouter une série")} </button>
           </div>
         ))}
       </div>

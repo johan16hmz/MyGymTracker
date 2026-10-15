@@ -12,6 +12,7 @@ import { mergeFoodHistory } from '../nutritionHistory';
 import type { FoodHistoryEntry } from '../nutritionHistory';
 import { appendMealEntries } from '../nutritionMeals';
 import { NutritionSavedMeals } from './NutritionSavedMeals';
+import { PageHeading } from './PageHeading';
 import type { SavedMealDraft } from './NutritionSavedMeals';
 
 const Scanner=lazy(()=>import('./NutritionScanner').then(module=>({default:module.NutritionScanner})));
@@ -78,11 +79,13 @@ export function ProfileForm({ initial, onSave, onCancel, saving }: {
       {(['lose', 'maintain', 'gain'] as const).map(option => <label key={option} className={goal === option ? 'selected' : ''}><input type="radio" name="goal" checked={goal === option} onChange={() => setGoal(option)} />{t(option === 'lose' ? 'Perdre du poids' : option === 'gain' ? 'Prendre du muscle' : 'Maintenir mon poids')}</label>)}
     </fieldset>
     <div className="nutrition-form-grid">
+      <h3 className="profile-section-heading">{t('Tes caractéristiques')}</h3>
       <label>{t('Poids actuel')} ({weightUnit})<DecimalInput required min={weightUnit === 'lb' ? 55 : 25} max={weightUnit === 'lb' ? 882 : 400} step="0.1" value={weightKg} onChange={e => setWeightKg(e.target.value)} /></label>
       <label>{t('Poids visé')} ({weightUnit})<DecimalInput required min={weightUnit === 'lb' ? 55 : 25} max={weightUnit === 'lb' ? 882 : 400} step="0.1" value={targetKg} onChange={e => setTargetKg(e.target.value)} /></label>
       <label>{t('Âge (années)')}<input type="number" required min="18" max="100" step="1" value={age} onChange={e => setAge(e.target.value)} /></label>
       <label>{t('Taille (cm)')}<input type="number" required min="100" max="250" step="1" value={heightCm} onChange={e => setHeightCm(e.target.value)} /></label>
       <label>{t('Sexe utilisé pour le calcul')}<select required value={equationSex} onChange={e => setEquationSex(e.target.value as EquationSex | '')}><option value="">{t('Choisir une formule')}</option><option value="male">{t('Formule homme')}</option><option value="female">{t('Formule femme')}</option></select></label>
+      <h3 className="profile-section-heading">{t('Ton activité')}</h3>
       <label>{t('Activité quotidienne hors sport')}<select required value={dailyActivity} onChange={event=>setDailyActivity(event.target.value as DailyActivity|'')}><option value="">{t('Choisir mon activité')}</option><option value="sedentary">{t('Principalement assis · peu de déplacements')}</option><option value="light">{t('Un peu de marche · activité légère')}</option><option value="moderate">{t('Souvent debout · marche régulière')}</option><option value="high">{t('Travail physique · déplacements fréquents')}</option></select></label>
       <label>{t('Séances par semaine')}<input required type="number" inputMode="numeric" min={0} max={14} step={1} value={sessionsPerWeek} onChange={event=>setSessionsPerWeek(event.target.value)}/></label>
       {Number(sessionsPerWeek)>0 && <>
@@ -218,7 +221,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   };
   if(loadingProfile)return <div className="loading-panel" role="status"><span className="loading-spinner"/>{t('Chargement de ton journal nutrition…')}</div>;
   if(profileError)return <div className="nutrition-error" role="alert">{profileError}<button className="btn btn-secondary" onClick={()=>setProfileReload(value=>value+1)}>{t('Réessayer')}</button></div>;
-  if(!profile || editingProfile)return <section className="nutrition-page"><div className="nutrition-page-header"><p className="eyebrow">NUTRITION</p><h1>{t('Mange avec intention.')}</h1><p>{t('Ton objectif, tes repas, ta progression.')}</p></div><ProfileForm initial={profile} saving={saving} onSave={persistProfile} onCancel={profile?()=>setEditingProfile(false):undefined}/></section>;
+  if(!profile || editingProfile)return <section className="nutrition-page"><PageHeading eyebrow="Nutrition" title="Mon profil nutrition" description="Tes repères, adaptés à ton quotidien."/><ProfileForm initial={profile} saving={saving} onSave={persistProfile} onCancel={profile?()=>setEditingProfile(false):undefined}/></section>;
   return <>
     <NutritionDiary profile={profile} day={day} date={date} busy={saving} loading={loadingDay} error={dayError} focusWeight={openWeight}
       onHistory={()=>setHistoryOpen(true)}

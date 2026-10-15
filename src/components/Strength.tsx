@@ -12,6 +12,8 @@ import { strengthLogs } from '../statistics';
 import { StrengthWeightInput } from './StrengthWeightInput';
 import { StrengthTestedMaxes } from './StrengthTestedMaxes';
 import type { TestedMax } from '../testedMaxes';
+import { PageHeading } from './PageHeading';
+import { Icon } from './Icon';
 
 interface Props {
   userId: string;
@@ -24,6 +26,7 @@ interface Props {
   maxTests?: TestedMax[];
   onSaveMax?: (value:TestedMax) => Promise<void>;
   onRemoveMax?: (id:string) => Promise<void>;
+  initialTab?: 'program'|'maxes';
 }
 
 const n = (value: number) => value.toLocaleString(locale());
@@ -88,9 +91,10 @@ function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
   </form>;
 }
 
-export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordSession, onRemoveSession, saveBlock = saveStrengthBlock, maxTests, onSaveMax, onRemoveMax }: Props) {
+export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordSession, onRemoveSession, saveBlock = saveStrengthBlock, maxTests, onSaveMax, onRemoveMax, initialTab='program' }: Props) {
   useLanguage();
   const weightUnit = useWeightUnit();
+  const [forceTab,setForceTab]=useState(initialTab);
   const records = workouts.filter(workout => getStrengthBlock(workout));
   const recordBlocks = records.map(record => getStrengthBlock(record)!);
   const currentIndex = getCurrentStrengthBlockIndex(recordBlocks);
@@ -168,15 +172,20 @@ export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordS
   const completed = new Set([...(selected?strengthLogs([selected]).map(log=>log.date):[]),...sessionsForBlock.map(session=>session.date)]).size;
 
   return <section className="force-page">
-    <div className="force-heading">
-      <div><p className="force-eyebrow">POWERLIFTING & STREETLIFTING</p><h2>{t("Force")}</h2><p>{t("Ton cycle. Tes exercices. Tes performances.")}</p></div>
-      {!creating && <button className="btn btn-primary" disabled={dirty || saving} onClick={() => {
-        setName(`${t('Bloc force')} ${records.length + 1}`); setTargets(emptyTargets()); setSetsByExercise({}); setCreating(true); setMessage(''); setError('');
-      }}>{t("+ Nouveau bloc")}</button>}
-    </div>
+    <PageHeading eyebrow="Powerlifting & streetlifting" title="Force" description="Un programme clair. Des performances qui restent." actions={!creating?<button className="btn btn-primary" disabled={dirty || saving} onClick={()=>{
+      setForceTab('program');setName(`${t('Bloc force')} ${records.length+1}`);setTargets(emptyTargets());setSetsByExercise({});setCreating(true);setMessage('');setError('');
+    }}><Icon name="plus" size={18}/>{t('Nouveau bloc')}</button>:undefined}/>
+    <div className="force-view-tabs" role="tablist" aria-label={t('Espace Force')} onKeyDown={event=>{
+      if(saving || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+      event.preventDefault();
+      const next=event.key==='Home'?'program':event.key==='End'?'maxes':forceTab==='program'?'maxes':'program';
+      setForceTab(next);
+      event.currentTarget.querySelector<HTMLButtonElement>(`#force-${next}-tab`)?.focus();
+    }}><button type="button" role="tab" tabIndex={forceTab==='program'?0:-1} aria-selected={forceTab==='program'} aria-controls="force-program-panel" id="force-program-tab" disabled={saving} onClick={()=>setForceTab('program')}>{t('Mon programme')}</button><button type="button" role="tab" tabIndex={forceTab==='maxes'?0:-1} aria-selected={forceTab==='maxes'} aria-controls="force-maxes-panel" id="force-maxes-tab" disabled={saving} onClick={()=>setForceTab('maxes')}>{t('Tests 1RM')}</button></div>
     {error && <p className="force-error" role="alert">{error}</p>}
     {message && <p className="force-success" role="status">{message}</p>}
-    <StrengthTestedMaxes key={userId} userId={userId} exercises={recordBlocks.flatMap(item=>item.exercises.map(exercise=>({id:exercise.id,name:exercise.name,weighted:exercise.weighted})))} tests={maxTests} onSave={onSaveMax} onRemove={onRemoveMax}/>
+    <div role="tabpanel" id="force-maxes-panel" aria-labelledby="force-maxes-tab" hidden={forceTab!=='maxes'}><StrengthTestedMaxes key={userId} userId={userId} exercises={recordBlocks.flatMap(item=>item.exercises.map(exercise=>({id:exercise.id,name:exercise.name,weighted:exercise.weighted})))} tests={maxTests} onSave={onSaveMax} onRemove={onRemoveMax}/></div>
+    <div role="tabpanel" id="force-program-panel" aria-labelledby="force-program-tab" hidden={forceTab!=='program'}>
 
     {creating ? <form className="force-panel" onSubmit={event => {
       event.preventDefault();
@@ -231,7 +240,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordS
         </div>
       </div>
       {onRecordSession && selected && <section className="force-record-session"><div><strong>{t('Ce que tu as réellement soulevé')}</strong><p>{t('Enregistre un entraînement du jour ou passé. Les charges prévues restent séparées des performances.')}</p></div><button className="btn btn-primary" disabled={dirty || saving} onClick={()=>onRecordSession(selected,activeWeek)}>{t('Saisir mes performances Force')}</button></section>}
-      <details key={selected?.id} className="force-panel force-block-summary" open>
+      <details key={selected?.id} className="force-panel force-block-summary">
         <summary>{t("Récapitulatif du bloc")}</summary>
         <StrengthSummaryTable block={block} caption={t("Charges prévues")} unit={weightUnit} />
       </details>
@@ -240,14 +249,14 @@ export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordS
       </button>)}</div>
       <div className="force-exercise-heading"><h3>{t(exercise.name)}</h3><span>{exercise.weighted ? t("Lest ajouté") : t("Charge totale")} {t("· pas de")} {weightText(exercise.step, weightUnit)}</span></div>
       {exercise.weighted && block.bodyWeight === undefined && <p className="force-error" role="status">{t("Ce bloc utilise encore l’ancien calcul. Renseigne ton poids du corps puis recalcule les charges.")}</p>}
-      <StrengthLoadEditor key={`${selected?.id}-${exercise.id}-${exercise.target}-${block.bodyWeight}-${exercise.setReductionPercent}`} exercise={exercise} bodyWeight={block.bodyWeight} saving={saving} onApply={(target, bodyWeight, reductionPercent) => {
+      <details className="force-exercise-settings"><summary><Icon name="chevron-down" size={16}/>{t('Réglages de l’exercice')}<span>{t('1RM visé, poids du corps et calcul des charges')}</span></summary><StrengthLoadEditor key={`${selected?.id}-${exercise.id}-${exercise.target}-${block.bodyWeight}-${exercise.setReductionPercent}`} exercise={exercise} bodyWeight={block.bodyWeight} saving={saving} onApply={(target, bodyWeight, reductionPercent) => {
         try {
           const next=updateStrengthLoads(latestBlock.current!, exercise.id, target, bodyWeight, reductionPercent);
           setBlock(next);
           setDirty(true); setMessage(''); setError('');
           void persist(next,selected!.name,selected,t('Charges recalculées et enregistrées.'));
         } catch (err) { setError(err instanceof Error ? t(err.message) : t('Vérifie les informations saisies.')); }
-      }} />
+      }}/></details>
       <fieldset className="force-editor" disabled={saving}>
         <div className="force-week-tabs" aria-label={t("Semaine du bloc")}>{weeks.map(week => <button type="button" key={week} aria-pressed={activeWeek === week} onClick={() => setActiveWeek(week)}>{t("Sem.")} {week}</button>)}</div>
         <div className="force-weeks">{weeks.map(week => <section className="force-week" data-active={activeWeek === week} key={week}>
@@ -288,12 +297,13 @@ export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordS
       <TrainingHistory sessions={trainingSessions(workouts).filter(session=>session.source==='strength' && session.sourceId===selected?.id)} onRemove={onRemoveSession}/>
     </>}
 
-    <details className="force-panel force-rpe" open>
+    <details className="force-panel force-rpe">
       <summary>{t("Tableau RPE · % du 1RM")}</summary>
       <p>{t("Référence fournie pour les calculs. Les colonnes correspondent au nombre de répétitions.")}</p>
       <div className="force-table-scroll"><table><caption>{t("Pourcentage du 1RM selon le RPE et les répétitions")}</caption><thead><tr><th scope="col">RPE / Reps</th>{Array.from({ length: 12 }, (_, i) => <th scope="col" key={i}>{i + 1}</th>)}</tr></thead>
         <tbody>{RPE_TABLE.map(row => <tr key={row.rpe}><th scope="row">{n(row.rpe)}</th>{row.percentages.map((percentage, i) => <td key={i} style={{ backgroundColor: `hsl(${(100 - percentage) * 2.7} 65% 78%)` }}>{n(percentage)} %</td>)}</tr>)}</tbody>
       </table></div>
     </details>
+    </div>
   </section>;
 }

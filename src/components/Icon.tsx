@@ -1,4 +1,4 @@
-type IconName = 'workout' | 'strength' | 'nutrition' | 'statistics' | 'weight' | 'download' | 'refresh' | 'plus' | 'arrow' | 'edit' | 'trash' | 'settings' | 'logout' | 'check' | 'search' | 'calendar' | 'barcode' | 'camera' | 'steps' | 'water' | 'leaf';
+type IconName = 'workout' | 'strength' | 'nutrition' | 'statistics' | 'weight' | 'download' | 'refresh' | 'plus' | 'minus' | 'close' | 'chevron-left' | 'chevron-right' | 'chevron-down' | 'arrow-up' | 'arrow-down' | 'arrow' | 'edit' | 'trash' | 'settings' | 'logout' | 'check' | 'search' | 'calendar' | 'barcode' | 'camera' | 'steps' | 'water' | 'leaf';
 const paths: Record<IconName, string> = {
   statistics: 'M4 3v17h17M8 16v-5M13 16V7M18 16V4',
   weight: 'M4 4h16v16H4zM8 9a4 4 0 0 1 8 0M12 9l2-3',
@@ -8,6 +8,9 @@ const paths: Record<IconName, string> = {
   strength: 'm3 17 6-6 4 3 8-10M15 4h6v6',
   nutrition: 'M4 3v5a3 3 0 0 0 6 0V3M7 3v18M17 3v10h3M20 3v18M17 3h3',
   plus: 'M12 5v14M5 12h14', arrow: 'M5 12h14m-6-6 6 6-6 6',
+  minus: 'M5 12h14', close: 'M6 6l12 12M18 6 6 18',
+  'chevron-left': 'm15 5-7 7 7 7', 'chevron-right': 'm9 5 7 7-7 7', 'chevron-down': 'm5 9 7 7 7-7',
+  'arrow-up': 'M12 20V4m-6 6 6-6 6 6', 'arrow-down': 'M12 4v16m-6-6 6 6 6-6',
   edit: 'm14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15z',
   trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
   settings: 'M4 7h16M4 17h16M8 4v6M16 14v6', logout: 'M9 4H4v16h5M10 12h11m-4-4 4 4-4 4',

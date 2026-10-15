@@ -2,6 +2,7 @@ import { useId, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { t } from '../i18n';
+import { Icon } from './Icon';
 import { lockNutritionScroll } from '../nutritionScrollLock';
 
 export function NutritionModal({ title, subtitle, children, onClose, busy = false }: {title:string; subtitle?:string; children:ReactNode; onClose:()=>void; busy?:boolean}) {
@@ -28,7 +29,7 @@ export function NutritionModal({ title, subtitle, children, onClose, busy = fals
   },[]);
   return createPortal(<div className="nutri-overlay" onClick={() => {if (!busy) onClose();}}>
     <section className="nutri-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1} onClick={event=>event.stopPropagation()}>
-      <div className="nutri-sheet-handle"/><header className="nutri-sheet-header"><div>{subtitle && <p className="eyebrow">{subtitle}</p>}<h2 id={titleId}>{title}</h2></div><button className="nutri-icon-button" type="button" aria-label={t('Fermer')} onClick={onClose} disabled={busy}>×</button></header>
+      <div className="nutri-sheet-handle"/><header className="nutri-sheet-header"><div>{subtitle && <p className="eyebrow">{subtitle}</p>}<h2 id={titleId}>{title}</h2></div><button className="nutri-icon-button" type="button" aria-label={t('Fermer')} onClick={onClose} disabled={busy}><Icon name="close" size={18}/></button></header>
       {children}
     </section>
   </div>,document.body);

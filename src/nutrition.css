@@ -133,7 +133,8 @@
 .nutri-food-result-end { display:flex; flex-direction:column; align-items:flex-end; gap:9px; flex-shrink:0; }
 .nutri-food-result-end strong { font-size:.86rem; font-weight:650; }
 .nutri-food-result-end strong small { font-size:.62rem; font-weight:400; }
-.nutri-plus { display:grid; place-items:center; width:28px; height:28px; color:var(--text); border:1px solid #a3b583; border-radius:50%; font-size:20px; }
+.nutri-plus { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:28px; height:28px; color:var(--text); border:1px solid #a3b583; border-radius:50%; line-height:0; }
+.nutri-plus > svg { display:block; }
 .nutri-search-empty { min-height:180px; padding:30px 12px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; color:var(--text-muted); font-size:.84rem; }
 .nutri-search-empty p { font-size:.76rem; }
 .nutri-food-detail { margin:15px 0; padding:23px 18px; text-align:center; border-radius:17px; background:var(--bg); border:1px solid var(--border); }

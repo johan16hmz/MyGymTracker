@@ -7,6 +7,7 @@ import { DecimalInput } from './DecimalInput';
 import { sortWorkoutsByLastModified, stampWorkoutExercises } from '../workoutOrder';
 import { selectExerciseVariant } from '../exerciseVariants';
 import { ExerciseVariantPicker } from './ExerciseVariantPicker';
+import { PageHeading } from './PageHeading';
 
 interface WorkoutListProps {
   workouts: Workout[];
@@ -135,13 +136,13 @@ export function WorkoutList({
 
   return (
     <div className="workout-list">
-      <section className="dashboard-hero"><div><p className="eyebrow">{t('TON JOURNAL D’ENTRAÎNEMENT')}</p><h1>{t('Chaque séance compte.')}</h1><p>{t('Retrouve tes séances. Prépare la prochaine. Continue de progresser.')}</p><button className="btn btn-primary" onClick={onNew}><Icon name="plus" />{t('Nouvelle séance')}</button></div><div className="hero-art" aria-hidden="true"><div className="hero-orbit" /><span>MAKE<br />IT COUNT.</span><Icon name="arrow" size={32} /></div></section>
+      <PageHeading eyebrow="Ton entraînement" title="Mes séances" description="Tes programmes, prêts pour ta prochaine séance." actions={<button className="btn btn-primary" onClick={onNew}><Icon name="plus" size={18}/>{t('Nouvelle séance')}</button>}/>
       <section className="overview-stats" aria-label={t('Vue d’ensemble')}><div><span><Icon name="workout" />{t('Modèles de séance')}</span><strong>{workouts.length.toString().padStart(2, '0')}<small>{t('depuis le début')}</small></strong></div><div><span><Icon name="strength" />{t('Séries planifiées')}</span><strong>{totalSets.toLocaleString(locale())}<small>{t('dans tes séances')}</small></strong></div><div><span><Icon name="calendar" />{t('Jours d’entraînement')}</span><strong>{days.toString().padStart(2, '0')}<small>{t('dates validées')}</small></strong></div></section>
       <p className="training-model-note">{t('Tes séances sont des modèles. Valide chaque entraînement pour alimenter la régularité, sans recréer ton programme.')}</p>
       {updateBusy && <p role="status">{t('Enregistrement…')}</p>}
       {failedUpdate && <div className="variant-save-error" role="alert"><p>{t('Modification non enregistrée. Tes valeurs sont conservées ici.')}</p><button className="btn btn-secondary btn-small" onClick={() => void persist(failedUpdate)}>{t('Réessayer')}</button><button className="btn btn-secondary btn-small" onClick={() => {setLocalWorkouts(workouts);setFailedUpdate(undefined);}}>{t('Annuler')}</button></div>}
       <div className="list-header">
-        <h2>{t("Mes Séances")} <span className="count-pill">{workouts.length}</span></h2>
+        <h2>{t('Bibliothèque de séances')} <span className="count-pill">{workouts.length}</span></h2>
         <label className="search-field"><Icon name="search" /><input aria-label={t('Rechercher une séance')} placeholder={t('Rechercher une séance')} value={query} onChange={event => setQuery(event.target.value)} /></label>
       </div>
 
@@ -186,7 +187,7 @@ export function WorkoutList({
                     aria-expanded={isExpanded}
                     title={isExpanded ? t("Masquer les séries") : t("Afficher les séries")}
                   >
-                    <span className={isExpanded ? 'chevron open' : 'chevron'}>⌄</span>
+                    <span className={isExpanded ? 'chevron open' : 'chevron'}><Icon name="chevron-down" size={18}/></span>
                   </button>
                 </div>
 

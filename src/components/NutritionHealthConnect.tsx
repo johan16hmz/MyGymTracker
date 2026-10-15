@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { enableHealthSync, healthSyncStatus, revokeHealthSync } from '../nutritionService';
 import { t, useLanguage } from '../i18n';
 import { NutritionModal } from './NutritionModal';
+import { Icon } from './Icon';
 
 export function NutritionHealthConnect({onClose}:{onClose:()=>void}) {
   useLanguage();
@@ -19,7 +20,7 @@ export function NutritionHealthConnect({onClose}:{onClose:()=>void}) {
     catch(error){setError(error instanceof Error?error.message:t('Activation impossible.'));}finally{setBusy(false);}
   };
   return <NutritionModal title={t('Santé, sans saisie quotidienne.')} subtitle={t('CONNEXION IPHONE')} onClose={onClose} busy={busy}>
-    <div className="nutri-health-intro"><span className="nutri-detail-badge">Apple Santé → Raccourcis → MyGymTracker</span><p>{t('Une automatisation iOS envoie uniquement la date et le total de pas. Le site ne lit pas directement Santé et ne demande pas ton mot de passe.')}</p></div>
+    <div className="nutri-health-intro"><span className="nutri-detail-badge"><span>Apple Santé</span><Icon name="arrow" size={14}/><span>Raccourcis</span><Icon name="arrow" size={14}/><span>MyGymTracker</span></span><p>{t('Une automatisation iOS envoie uniquement la date et le total de pas. Le site ne lit pas directement Santé et ne demande pas ton mot de passe.')}</p></div>
     {expiry && <p className="nutri-success">{t('Clé autorisée jusqu’au')} {new Date(expiry).toLocaleDateString()} · {t('Configurer le Raccourci reste nécessaire.')}</p>}
     <ol className="nutri-health-guide">
       <li><strong>{t('Autoriser l’envoi des pas')}</strong><p>{t('La clé est privée, révocable et limitée à tes pas. Elle ne permet ni de lire ton compte ni de modifier tes repas.')}</p><button className="btn btn-primary" disabled={!ready || busy} onClick={()=>void generate()}>{t(expiry?'Créer une nouvelle clé':'Créer ma clé de connexion')}</button>

@@ -36,7 +36,7 @@ export function WorkoutDetail({
 
   return (
     <div className="detail-container">
-      <button className="btn btn-back" onClick={onBack}>{t("← Retour")} </button>
+      <button className="btn btn-back" onClick={onBack}><Icon name="chevron-left" size={18}/>{t("Retour")} </button>
 
       <div className="detail-header">
         <p className="eyebrow">{t('DANS LES DÉTAILS')}</p>
