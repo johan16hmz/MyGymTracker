@@ -39,6 +39,8 @@ type Exercise = {
   id: string;
   name: string;
   sets: Set[];
+  activeVariantId?: string;
+  alternatives?: {id:string;name:string;sets:Set[]}[];
   strengthBlock?: StrengthBlock;
   nutritionProfile?: NutritionProfile;
   nutritionDay?: NutritionDay;
@@ -105,6 +107,8 @@ const exerciseSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),
   sets: z.array(setSchema).default([]),
+  activeVariantId: z.string().optional(),
+  alternatives: z.array(z.object({id:z.string(),name:z.string().trim().min(1),sets:z.array(setSchema)})).optional(),
 });
 
 const workoutInputSchema = z.object({
@@ -154,6 +158,8 @@ function normalizeWorkout(input: z.infer<typeof workoutInputSchema>): Omit<Worko
       id: exercise.id || id(),
       name: exercise.name,
       sets: exercise.sets.map(set => ({ ...set, id: set.id || id() })),
+      ...(exercise.activeVariantId ? {activeVariantId:exercise.activeVariantId} : {}),
+      ...(exercise.alternatives ? {alternatives:exercise.alternatives.map(variant=>({...variant,sets:variant.sets.map(set=>({...set,id:set.id || id()}))}))} : {}),
     })),
   };
 }
@@ -166,7 +172,7 @@ async function fetchWorkouts() {
   const { client, userId } = await requireAuth();
   const { data, error } = await client.from('workouts').select('*').eq('user_id', userId).order('date', { ascending: false });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME && workout.name !== '__nutrition_meal__' && workout.name !== '__training_session__');
+  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME && workout.name !== '__nutrition_meal__' && workout.name !== '__training_session__' && workout.name !== '__strength_tested_max__');
 }
 
 const nutritionProfileSchema = z.object({ goal: z.enum(['lose', 'maintain', 'gain']), targetKg: z.number().min(25).max(400), age: z.number().int().min(18).max(100), heightCm: z.number().min(100).max(250), weightKg: z.number().min(25).max(400), activity: z.enum(['low', 'moderate', 'active', 'veryActive']), equationSex: z.enum(['female', 'male']), calorieOverride: z.number().min(1200).max(6000).optional(), fiberGoal:z.number().min(10).max(100).optional(),stepGoal:z.number().int().min(1000).max(50000).optional(),baselineSteps:z.number().int().min(0).max(50000).optional(),adjustForSteps:z.boolean().optional() });

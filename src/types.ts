@@ -1,5 +1,6 @@
 import type { StrengthBlock } from './strength';
 import type { NutritionDay, NutritionProfile, SavedMeal } from './nutrition';
+import type { TestedMax } from './testedMaxes';
 
 export interface Set {
   id: string;
@@ -10,12 +11,22 @@ export interface Set {
 }
 
 export interface Exercise {
+  testedMax?: TestedMax;
+  // The active variant remains at the top level for legacy readers/counters.
+  activeVariantId?: string;
+  alternatives?: ExerciseVariant[];
   trainingSession?: TrainingSession;
   workoutUpdatedAt?: string;
   strengthBlock?: StrengthBlock;
   nutritionProfile?: NutritionProfile;
   nutritionDay?: NutritionDay;
   nutritionMeal?: SavedMeal;
+  id: string;
+  name: string;
+  sets: Set[];
+}
+
+export interface ExerciseVariant {
   id: string;
   name: string;
   sets: Set[];

@@ -1,6 +1,15 @@
 .stats-page { --stats-line:#527e45; --stats-weight-line:#bc7842; --stats-bar:#90aa69; animation:arrive .3s ease-out; }
 .stats-page { --stats-estimate-line:#8272af; }
 .stats-estimate-panel { margin-bottom:20px; }
+.stats-tested-panel { margin-bottom:20px; }
+.stats-max-callout { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:22px 26px; border-radius:18px; border:1px solid var(--border); background:var(--surface-hover); margin-bottom:22px; }
+.stats-max-callout .eyebrow { margin-bottom:8px; font-size:.6rem; }
+.stats-max-callout strong { font-size:1.2rem; }
+.stats-max-callout p:not(.eyebrow) { color:var(--text-muted); font-size:.76rem; margin-top:6px; }
+.stats-max-callout .btn { flex-shrink:0; }
+.stats-tested-select { display:block; max-width:320px; margin-bottom:22px; }
+.tested-max-form-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
+@media(max-width:700px) { .stats-max-callout { align-items:stretch; flex-direction:column; padding:20px 16px; }.stats-header-actions { flex-wrap:wrap; } }
 .stats-training-definition { margin-bottom:20px; }
 :root[data-theme=dark] .stats-page { --stats-estimate-line:#bca7e7; }
 .stats-heading { display:flex; justify-content:space-between; align-items:center; gap:24px; margin-bottom:28px; }

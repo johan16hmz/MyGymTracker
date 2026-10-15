@@ -7,7 +7,8 @@ const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileMod
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
 const mealsUrl=compile(readFileSync(new URL('../src/nutritionMeals.ts',import.meta.url),'utf8'));
 const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
-const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
+const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
+const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`).replaceAll("from './testedMaxes';",`from ${JSON.stringify(testedUrl)};`));
 let calls=[];let record;let health={data:null,error:{code:'PGRST205'}};let written;let historyRecords=[];let page;let writeError=null;
 globalThis.nutritionTestClient={from(table){
   const query={

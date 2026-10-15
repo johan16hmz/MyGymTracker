@@ -1,6 +1,10 @@
 import { t, useLanguage, locale, formatWeight, useWeightUnit } from '../i18n';
 import type { Workout } from '../types';
 import { Icon } from './Icon';
+import { useState, useRef } from 'react';
+import { ExerciseVariantPicker } from './ExerciseVariantPicker';
+import { selectExerciseVariant } from '../exerciseVariants';
+import { stampWorkoutExercises } from '../workoutOrder';
 
 interface WorkoutDetailProps {
   workout: Workout;
@@ -8,6 +12,7 @@ interface WorkoutDetailProps {
   onDelete: (id: string) => void;
   onBack: () => void;
   onComplete?: (workout: Workout) => void;
+  onUpdate?: (workout: Workout) => void | Promise<void>;
 }
 
 export function WorkoutDetail({
@@ -16,9 +21,13 @@ export function WorkoutDetail({
   onDelete,
   onBack,
   onComplete,
+  onUpdate,
 }: WorkoutDetailProps) {
   useLanguage();
   useWeightUnit();
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const busyRef = useRef(false);
   const handleDelete = () => {
     if (confirm(t("Êtes-vous sûr de vouloir supprimer cette séance ?"))) {
       onDelete(workout.id);
@@ -57,12 +66,19 @@ export function WorkoutDetail({
 
       <div className="exercises-section">
         <h3>{t("Exercices")}</h3>
+        {error && <p className="variant-save-error" role="alert">{error}</p>}
         {workout.exercises.map((exercise, exIndex) => (
           <div key={exercise.id} className="exercise-detail">
             <div className="exercise-header">
               <h4>{exIndex + 1}. {exercise.name}</h4>
               <span className="set-count">{exercise.sets.length} {t("séries")}</span>
             </div>
+            {onUpdate && <ExerciseVariantPicker exercise={exercise} disabled={busy} onChange={id => {
+              if (busyRef.current) return;
+              busyRef.current=true;setBusy(true);setError('');
+              const updated={...workout,exercises:stampWorkoutExercises(workout.exercises.map(item => item.id === exercise.id ? selectExerciseVariant(item,id) : item))};
+              void Promise.resolve().then(() => onUpdate(updated)).catch(() => setError(t('Changement non enregistré. La variante précédente est conservée ; réessaie.'))).finally(() => {busyRef.current=false;setBusy(false);});
+            }}/>}
             <div className="sets-grid">
               {exercise.sets.map((set, setIndex) => (
                 <div key={set.id} className="set-item">

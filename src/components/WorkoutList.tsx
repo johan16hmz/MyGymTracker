@@ -1,10 +1,12 @@
 import { t, useLanguage, locale, formatWeight, useWeightUnit } from '../i18n';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Workout, Exercise, TrainingSession } from '../types';
 import { TrainingHistory } from './TrainingHistory';
 import { Icon } from './Icon';
 import { DecimalInput } from './DecimalInput';
 import { sortWorkoutsByLastModified, stampWorkoutExercises } from '../workoutOrder';
+import { selectExerciseVariant } from '../exerciseVariants';
+import { ExerciseVariantPicker } from './ExerciseVariantPicker';
 
 interface WorkoutListProps {
   workouts: Workout[];
@@ -12,7 +14,7 @@ interface WorkoutListProps {
   onView: (workout: Workout) => void;
   onEdit: (workout: Workout) => void;
   onDelete: (id: string) => void;
-  onUpdate?: (workout: Workout) => void;
+  onUpdate?: (workout: Workout) => void | Promise<void>;
   sessions?: TrainingSession[];
   onComplete?: (workout: Workout) => void;
   onRemoveSession?: (id:string) => Promise<void>;
@@ -38,6 +40,9 @@ export function WorkoutList({
   const [editValue, setEditValue] = useState<string>('');
   const [localWorkouts, setLocalWorkouts] = useState<Workout[]>(workouts);
   const [query, setQuery] = useState('');
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const updateRef = useRef(false);
+  const [failedUpdate, setFailedUpdate] = useState<Workout>();
   const visibleWorkouts = sortWorkoutsByLastModified(localWorkouts).filter(workout => workout.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const totalSets = workouts.reduce((total, workout) => total + workout.exercises.reduce((sum, ex) => sum + ex.sets.length, 0), 0);
   const days = trainingDays ?? new Set(sessions.map(session => session.date)).size;
@@ -51,8 +56,18 @@ export function WorkoutList({
   }, []);
 
   const handleSetClick = (exerciseId: string, setId: string, field: 'weight' | 'reps', currentValue: string) => {
+    if (updateRef.current || failedUpdate) return;
     setEditingSet({ exerciseId, setId, field });
     setEditValue(currentValue === '?' ? '' : currentValue);
+  };
+
+  const persist = async (workout: Workout) => {
+    if (updateRef.current) return;
+    updateRef.current = true; setUpdateBusy(true); setFailedUpdate(undefined);
+    setLocalWorkouts(previous => previous.map(item => item.id === workout.id ? workout : item));
+    try { await onUpdate?.(workout); }
+    catch { setFailedUpdate(workout); }
+    finally { updateRef.current = false; setUpdateBusy(false); }
   };
 
   const handleSetBlur = () => {
@@ -106,11 +121,7 @@ export function WorkoutList({
     });
 
     const updatedWorkout = { ...workout, exercises: stampWorkoutExercises(updatedExercises) };
-    setLocalWorkouts(prev => prev.map(w => w.id === workout.id ? updatedWorkout : w));
-    
-    if (onUpdate) {
-      onUpdate(updatedWorkout);
-    }
+    void persist(updatedWorkout);
     
     setEditingSet(null);
   };
@@ -127,6 +138,8 @@ export function WorkoutList({
       <section className="dashboard-hero"><div><p className="eyebrow">{t('TON JOURNAL D’ENTRAÎNEMENT')}</p><h1>{t('Chaque séance compte.')}</h1><p>{t('Retrouve tes séances. Prépare la prochaine. Continue de progresser.')}</p><button className="btn btn-primary" onClick={onNew}><Icon name="plus" />{t('Nouvelle séance')}</button></div><div className="hero-art" aria-hidden="true"><div className="hero-orbit" /><span>MAKE<br />IT COUNT.</span><Icon name="arrow" size={32} /></div></section>
       <section className="overview-stats" aria-label={t('Vue d’ensemble')}><div><span><Icon name="workout" />{t('Modèles de séance')}</span><strong>{workouts.length.toString().padStart(2, '0')}<small>{t('depuis le début')}</small></strong></div><div><span><Icon name="strength" />{t('Séries planifiées')}</span><strong>{totalSets.toLocaleString(locale())}<small>{t('dans tes séances')}</small></strong></div><div><span><Icon name="calendar" />{t('Jours d’entraînement')}</span><strong>{days.toString().padStart(2, '0')}<small>{t('dates validées')}</small></strong></div></section>
       <p className="training-model-note">{t('Tes séances sont des modèles. Valide chaque entraînement pour alimenter la régularité, sans recréer ton programme.')}</p>
+      {updateBusy && <p role="status">{t('Enregistrement…')}</p>}
+      {failedUpdate && <div className="variant-save-error" role="alert"><p>{t('Modification non enregistrée. Tes valeurs sont conservées ici.')}</p><button className="btn btn-secondary btn-small" onClick={() => void persist(failedUpdate)}>{t('Réessayer')}</button><button className="btn btn-secondary btn-small" onClick={() => {setLocalWorkouts(workouts);setFailedUpdate(undefined);}}>{t('Annuler')}</button></div>}
       <div className="list-header">
         <h2>{t("Mes Séances")} <span className="count-pill">{workouts.length}</span></h2>
         <label className="search-field"><Icon name="search" /><input aria-label={t('Rechercher une séance')} placeholder={t('Rechercher une séance')} value={query} onChange={event => setQuery(event.target.value)} /></label>
@@ -193,6 +206,7 @@ export function WorkoutList({
                           <div className="exercise-name">
                             {exIdx + 1}. {exercise.name}
                           </div>
+                          {onUpdate && <ExerciseVariantPicker exercise={exercise} disabled={updateBusy || !!failedUpdate} onChange={id => {setEditingSet(null);void persist({...workout,exercises:stampWorkoutExercises(workout.exercises.map(item => item.id === exercise.id ? selectExerciseVariant(item,id) : item))});}}/>}
                           <div className="sets-preview">
                             {exercise.sets.map((set, setIdx) => (
                               <div key={set.id} className="set-edit-group">

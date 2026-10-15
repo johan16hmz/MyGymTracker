@@ -5,6 +5,8 @@ import type { Workout, Exercise } from '../types';
 import { TemplateSelector } from './TemplateSelector';
 import { Icon } from './Icon';
 import { DecimalInput } from './DecimalInput';
+import { addExerciseVariant, groupExerciseVariants, selectExerciseVariant, ungroupExerciseVariant } from '../exerciseVariants';
+import { ExerciseVariantPicker } from './ExerciseVariantPicker';
 
 interface WorkoutFormProps {
   userId: string;
@@ -83,6 +85,7 @@ export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormPr
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [saveError, setSaveError] = useState(false);
+  const [variantEditor, setVariantEditor] = useState<{ exerciseId: string; name: string }>();
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const draftWritten = useRef(Boolean(restored));
   const [online, setOnline] = useState(navigator.onLine);
@@ -375,6 +378,15 @@ export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormPr
               >
                 ×
               </button>
+            </div>
+
+            <div className="exercise-variant-editor">
+              <ExerciseVariantPicker exercise={exercise} onChange={id => setExercises(previous => applyDraftReps({ ...initial, exercises: previous }, repsInputValues).exercises.map(item => item.id === exercise.id ? selectExerciseVariant(item,id) : item))}/>
+              <div className="exercise-variant-actions"><button type="button" className="btn btn-small btn-secondary" onClick={() => setVariantEditor({ exerciseId: exercise.id, name: '' })}>{t('+ Ajouter une alternative')}</button>
+                {exercises.length > 1 && <label className="exercise-variant-associate"><span className="sr-only">{t('Associer un exercice existant')} · {exercise.name}</span><select aria-label={`${t('Associer un exercice existant')} · ${exercise.name}`} value="" onChange={event => { const sourceId = event.target.value; if(sourceId) setExercises(previous => groupExerciseVariants(applyDraftReps({...initial,exercises:previous},repsInputValues).exercises,exercise.id,sourceId)); }}><option value="">{t('Associer un exercice existant…')}</option>{exercises.filter(item => item.id !== exercise.id).map(item => <option key={item.id} value={item.id}>{item.name || t('Sans nom')}</option>)}</select></label>}
+              </div>
+              {variantEditor?.exerciseId === exercise.id && <div className="exercise-variant-create"><label>{t('Nom de l’alternative')}<input autoFocus maxLength={150} value={variantEditor.name} placeholder={t('Ex. Développé militaire machine')} onChange={event => setVariantEditor({ exerciseId: exercise.id, name: event.target.value })} onKeyDown={event => {if(event.key === 'Enter') event.preventDefault();}}/></label><button type="button" className="btn btn-primary btn-small" disabled={!variantEditor.name.trim() || !exercise.name.trim()} onClick={() => { setExercises(previous => applyDraftReps({...initial,exercises:previous},repsInputValues).exercises.map(item => item.id === exercise.id ? addExerciseVariant(item,variantEditor.name) : item)); setVariantEditor(undefined); }}>{t('Créer l’alternative')}</button><button type="button" className="btn btn-small btn-secondary" onClick={() => setVariantEditor(undefined)}>{t('Annuler')}</button><small>{t('Même nombre de séries et répétitions au départ ; les charges de la nouvelle variante restent à renseigner.')}</small></div>}
+              {!!exercise.alternatives?.length && <details className="exercise-variant-manage"><summary>{t('Gérer les alternatives')}</summary>{exercise.alternatives.map(variant => <div key={variant.id}><span>{variant.name} · {variant.sets.length} {t('séries')}</span><button className="btn btn-small btn-secondary" type="button" onClick={() => setExercises(previous => ungroupExerciseVariant(applyDraftReps({...initial,exercises:previous},repsInputValues).exercises,exercise.id,variant.id))}>{t('Séparer en exercice')}</button></div>)}</details>}
             </div>
 
             <div className="sets-table">

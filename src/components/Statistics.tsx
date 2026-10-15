@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { buildStatistics, loadPoints, estimatedMaxPoints } from '../statistics';
 import type { StatsPeriod, StatsSource } from '../statistics';
@@ -6,6 +6,10 @@ import { loadStatistics } from '../statisticsService';
 import { locale, t, useLanguage, useWeightUnit } from '../i18n';
 import { toDisplayWeight } from '../weightUnits';
 import { Icon } from './Icon';
+import { TestedMaxForm } from './TestedMaxForm';
+import { testedMaxPoints } from '../testedMaxes';
+import type { TestedMax } from '../testedMaxes';
+import { saveTestedMax, removeTestedMax } from '../testedMaxService';
 import '../statistics.css';
 
 const format = (value: number, decimals = 2) => value.toLocaleString(locale(), { maximumFractionDigits: decimals });
@@ -23,8 +27,9 @@ function PlotTooltip({ active, payload }: { active?: boolean; payload?: readonly
   return <div className="stats-tooltip"><span>{dateLabel(point.date)}</span><strong>{format(point.value)} {unit}</strong>{point.reps !== undefined && <small>{point.reps} {t('répétitions')}</small>}</div>;
 }
 
-export function StatisticsDashboard({ source, onNutrition, onStrength, onRefresh, today }: {
+export function StatisticsDashboard({ source, onNutrition, onStrength, onRefresh, today, onSaveMax, onRemoveMax }: {
   source: StatsSource; onNutrition: () => void; onStrength: () => void; onRefresh?: () => void; today?: string;
+  onSaveMax?: (value: TestedMax) => Promise<void>; onRemoveMax?: (id: string) => Promise<void>;
 }) {
   useLanguage();
   const unit = useWeightUnit();
@@ -33,6 +38,7 @@ export function StatisticsDashboard({ source, onNutrition, onStrength, onRefresh
   const [reps, setReps] = useState<number | 'all'>(3);
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState('');
+  const [maxForm, setMaxForm] = useState<TestedMax | 'new'>();
   const stats = useMemo(() => buildStatistics(source, period, today), [source, period, today]);
   const exercise = stats.exercises.find(item => item.id === exerciseId) ?? stats.exercises[0];
   const points = loadPoints(stats.logs, exercise?.id ?? '', reps);
@@ -40,6 +46,8 @@ export function StatisticsDashboard({ source, onNutrition, onStrength, onRefresh
   const maxPoints=estimatedMaxPoints(stats.logs,exercise?.id ?? '');
   const maxLoads=maxPoints.map(point=>({...point,time:time(point.date),value:toDisplayWeight(point.oneRM,unit)}));
   const maxChange=maxPoints.length>1?maxPoints.at(-1)!.oneRM-maxPoints[0].oneRM:undefined;
+  const testedPoints = testedMaxPoints(stats.maxTests, exercise?.id ?? '');
+  const testedLoads = testedPoints.map(point => ({ ...point, time: time(point.date), value: toDisplayWeight(point.weight, unit) }));
   const weights = stats.weights.map(point => ({ ...point, time: time(point.date), value: toDisplayWeight(point.weightKg, unit) }));
   const change = points.length > 1 ? points.at(-1)!.weight - points[0].weight : undefined;
   const weightChange = weights.length > 1 ? stats.weights.at(-1)!.weightKg - stats.weights[0].weightKg : undefined;
@@ -63,6 +71,7 @@ export function StatisticsDashboard({ source, onNutrition, onStrength, onRefresh
     <header className="stats-heading"><div><p className="eyebrow">{t('STATISTIQUES / TA PROGRESSION')}</p><h1>{t('Tes efforts prennent forme.')}</h1><p>{t('Tes charges, ton poids, ta régularité. Un regard sur le chemin parcouru.')}</p></div><div className="stats-header-actions">{onRefresh && <button className="btn btn-secondary" onClick={onRefresh} aria-label={t('Actualiser les statistiques')}><Icon name="refresh" size={17}/></button>}<button className="btn btn-secondary" disabled={exporting} onClick={()=>void exportExcel()}><Icon name="download" size={17}/>{t(exporting?'Préparation…':'Exporter en Excel')}</button></div></header>
     <div className="stats-period-row"><div className="stats-periods" aria-label={t('Période des statistiques')}>{(['28','84','180','all'] as const).map(value=><button key={value} aria-pressed={period===value} onClick={()=>{setPeriod(value);setExportMessage('');}}>{t(value==='28'?'4 semaines':value==='84'?'12 semaines':value==='180'?'6 mois':'Tout')}</button>)}</div><span>{dateLabel(stats.start)} {stats.start.slice(0,4)} — {dateLabel(stats.today)} {stats.today.slice(0,4)}</span></div>
     {exportMessage && <p className="stats-export-status" role="status">{exportMessage}</p>}
+    {onSaveMax && <div className="stats-max-callout"><div><p className="eyebrow">{t('LE JOUR DU TEST')}</p><strong>{t('Tu as testé ton maximum ?')}</strong><p>{t('Garde ton vrai 1RM, même sans enregistrer de séries dans un bloc.')}</p></div><button className="btn btn-primary" onClick={() => setMaxForm('new')}><Icon name="plus" size={18}/>{t('Ajouter un 1RM testé')}</button></div>}
     <div className="stats-metrics">
       <article><span><Icon name="calendar" size={18}/>{t('Jours d’entraînement')}</span><strong>{stats.trainingDates.length}<small>{t('jours')}</small></strong><p>{t('Séances et force, sans doublons')}</p></article>
       <article><span><Icon name="strength" size={18}/>{t('Séries de force')}</span><strong>{stats.logs.length}<small>{t('réalisées')}</small></strong><p>{t('Les charges prévues ne comptent pas')}</p></article>
@@ -85,6 +94,13 @@ export function StatisticsDashboard({ source, onNutrition, onStrength, onRefresh
         <details className="stats-data-details"><summary>{t('Voir les pesées')}</summary><div className="stats-table-wrap"><table><thead><tr><th>{t('Date')}</th><th>{t('Poids')} ({unit})</th></tr></thead><tbody>{weights.map(point=><tr key={point.date}><td>{dateLabel(point.date)} {point.date.slice(0,4)}</td><td>{format(point.value)}</td></tr>)}</tbody></table></div></details>
       </section>
     </div>
+    <section className="stats-panel stats-tested-panel"><div className="stats-panel-heading"><div><p className="eyebrow">{t('1RM TESTÉ / FORCE')}</p><h2>{t('Ton maximum, pour de vrai.')}</h2></div><span className="stats-real-badge"><span/>{t('Testé')}</span></div>
+      <label className="stats-tested-select"><span className="sr-only">{t('Exercice du 1RM testé')}</span><select aria-label={t('Exercice du 1RM testé')} value={exercise?.id ?? ''} disabled={!stats.exercises.length} onChange={event => setExerciseId(event.target.value)}>{stats.exercises.map(item => <option key={item.id} value={item.id}>{t(item.name)}</option>)}</select></label>
+      <div className="stats-lift-summary"><div><span>{t('Dernier 1RM testé')}</span><strong>{testedPoints.length ? format(toDisplayWeight(testedPoints.at(-1)!.weight, unit)) : '—'}<small>{unit}</small></strong></div><div><span>{t('Évolution sur la période')}</span><strong>{testedPoints.length > 1 ? signed(toDisplayWeight(testedPoints.at(-1)!.weight - testedPoints[0].weight, unit)) : '—'}<small>{unit}</small></strong></div><div><span>{t('Meilleur 1RM testé')}</span><strong>{testedPoints.length ? format(toDisplayWeight(Math.max(...testedPoints.map(item => item.weight)), unit)) : '—'}<small>{unit}{exercise?.weighted ? ` ${t('de lest')}` : ''}</small></strong></div></div>
+      {testedLoads.length ? <div className="stats-plot" role="img" aria-label={t('Évolution du 1RM testé')}><ResponsiveContainer width="100%" height="100%"><LineChart data={testedLoads} margin={{top:15,right:16,bottom:4,left:-10}}><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 5"/><XAxis dataKey="time" type="number" domain={['dataMin','dataMax']} tickFormatter={dateTick} tick={ticks} axisLine={false} tickLine={false} minTickGap={35}/><YAxis domain={[(min:number)=>Math.max(0,min-5),(max:number)=>max+5]} tick={ticks} axisLine={false} tickLine={false} width={60}/><Tooltip content={<PlotTooltip/>}/><Line type="linear" dataKey="value" stroke="var(--stats-line)" strokeWidth={3} dot={{r:5,strokeWidth:2,fill:'var(--surface)'}} isAnimationActive={false}/></LineChart></ResponsiveContainer></div> : <ChartEmpty title="Pas encore de test sur cette sélection" description="Ajoute un 1RM réellement réussi pour suivre tes fins de bloc. Aucune estimation n’est ajoutée à cette courbe."/>}
+      <p className="stats-hint">{t('Meilleur test de chaque jour. Les tests comptent comme jours d’entraînement, mais restent séparés du nombre et du volume des séries de travail.')}{exercise?.weighted && ` ${t('Lest ajouté uniquement, hors poids du corps')}.`}</p>
+      {stats.maxTests.some(item => item.exerciseId === exercise?.id) && <details className="stats-data-details"><summary>{t('Historique des tests 1RM')}</summary><div className="stats-table-wrap"><table><thead><tr><th>{t('Date')}</th><th>1RM ({unit})</th><th>{t('Note')}</th>{onSaveMax && <th>{t('Modifier')}</th>}</tr></thead><tbody>{stats.maxTests.filter(item => item.exerciseId === exercise?.id).map(item => <tr key={item.id}><td>{dateLabel(item.date)} {item.date.slice(0,4)}</td><td>{format(toDisplayWeight(item.weight,unit))}</td><td>{item.note || '—'}</td>{onSaveMax && <td><button className="btn btn-small" onClick={() => setMaxForm(item)} aria-label={`${t('Modifier le 1RM testé')} · ${item.date} · ${item.weight}`}><Icon name="edit" size={16}/></button></td>}</tr>)}</tbody></table></div></details>}
+    </section>
     <section className="stats-panel stats-estimate-panel"><div className="stats-panel-heading"><div><p className="eyebrow">{t('1RM ESTIMÉ / FORCE')}</p><h2>{t('Ton potentiel sur une répétition.')}</h2><p className="stats-hint">{t(exercise?.name ?? 'Aucun exercice')} · {t('Toutes les séries de 1 à 10 répétitions, indépendamment du filtre des charges.')}</p></div><span className="stats-real-badge">{t('Estimation')}</span></div>
       <div className="stats-lift-summary"><div><span>{t('Dernier 1RM estimé')}</span><strong>{maxPoints.length?format(toDisplayWeight(maxPoints.at(-1)!.oneRM,unit)):'—'}<small>{unit}{exercise?.weighted?` ${t('de lest')}`:''}</small></strong></div><div><span>{t('Évolution sur la période')}</span><strong className={maxChange!==undefined && maxChange>0?'stats-positive':''}>{maxChange===undefined?'—':signed(toDisplayWeight(maxChange,unit))}<small>{unit}</small></strong></div><div><span>{t('Meilleur 1RM estimé')}</span><strong>{maxPoints.length?format(toDisplayWeight(Math.max(...maxPoints.map(point=>point.oneRM)),unit)):'—'}<small>{unit}</small></strong></div></div>
       {maxLoads.length?<div className="stats-plot" role="img" aria-label={t('Évolution du 1RM estimé')}><ResponsiveContainer width="100%" height="100%"><LineChart data={maxLoads} margin={{top:15,right:16,bottom:4,left:-10}}><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 5"/><XAxis dataKey="time" type="number" domain={['dataMin','dataMax']} tickFormatter={dateTick} tick={ticks} axisLine={false} tickLine={false} minTickGap={35}/><YAxis domain={[(min:number)=>Math.max(0,min-5),(max:number)=>max+5]} tickFormatter={value=>format(value)} tick={ticks} axisLine={false} tickLine={false} width={60}/><Tooltip content={<PlotTooltip/>}/><Line type="linear" dataKey="value" stroke="var(--stats-estimate-line)" strokeWidth={3} dot={{r:4,strokeWidth:2,fill:'var(--surface)'}} isAnimationActive={false}/></LineChart></ResponsiveContainer></div>:<ChartEmpty title="Pas encore de 1RM estimable" description="Il faut une série Force de 1 à 10 répétitions et, pour les exercices lestés, le poids du corps à cette date."/>}
@@ -95,9 +111,12 @@ export function StatisticsDashboard({ source, onNutrition, onStrength, onRefresh
     <p className="stats-hint stats-training-definition">{t('La régularité utilise les entraînements validés et les performances Force, jamais la création d’un modèle de séance.')}</p>
     <div className="stats-secondary-grid">
       <section className="stats-panel"><div className="stats-panel-heading"><div><p className="eyebrow">{t('RÉGULARITÉ')}</p><h2>{t('Une semaine à la fois.')}</h2></div><span className="stats-count-pill">{stats.activeWeeks} / {stats.weeks.length} {t('actives')}</span></div><p className="stats-hint">{t('Jours d’entraînement par semaine. Une journée compte une seule fois, même avec plusieurs exercices.')}</p><div className="stats-week-plot" role="img" aria-label={t('Jours d’entraînement par semaine')}><ResponsiveContainer width="100%" height="100%"><BarChart data={stats.weeks} margin={{top:16,right:0,bottom:0,left:-25}}><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 5"/><XAxis dataKey="date" tickFormatter={dateLabel} tick={ticks} axisLine={false} tickLine={false} minTickGap={25}/><YAxis allowDecimals={false} domain={[0,7]} tick={ticks} axisLine={false} tickLine={false}/><Tooltip cursor={{fill:'var(--surface-hover)'}} content={({active,payload})=>active && payload?.[0]?<div className="stats-tooltip"><span>{t('Semaine du')} {dateLabel(payload[0].payload.date)}</span><strong>{payload[0].payload.days} {t('jours d’entraînement')}</strong></div>:null}/><Bar dataKey="days" fill="var(--stats-bar)" radius={[5,5,0,0]} maxBarSize={26} isAnimationActive={false}/></BarChart></ResponsiveContainer></div><p className="stats-hint">{t('Les semaines aux extrémités peuvent être partielles.')}</p></section>
-      <section className="stats-panel"><div className="stats-panel-heading"><div><p className="eyebrow">{t('REPÈRES DE FORCE')}</p><h2>{t('Tes meilleurs lifts.')}</h2></div><button className="stats-text-button" onClick={onStrength}>{t('Ouvrir Force')} <Icon name="arrow" size={16}/></button></div><p className="stats-hint">{t('Meilleure charge réalisée sur la période, avec le nombre de répétitions associé.')}</p>{stats.records.length?<div className="stats-records">{stats.records.map(record=><div key={record.id}><span><strong>{t(record.name)}</strong><small>{record.best?`${record.best.reps} ${t('répétitions')} · ${dateLabel(record.best.date)}`:t('Pas encore de performance')}</small></span><strong>{record.best?format(toDisplayWeight(record.best.weight,unit)):'—'} <small>{unit}{record.weighted?` ${t('de lest')}`:''}</small></strong></div>)}</div>:<ChartEmpty title="Tes records viendront ici" description="Crée ton premier bloc et enregistre tes séries dans Force."/>}<div className="stats-volume-note"><Icon name="strength" size={18}/><div><strong>{format(toDisplayWeight(stats.volume,unit),0)} {unit}·reps</strong><span>{t('Volume de force réalisé : charge × répétitions, hors poids du corps.')}</span></div></div></section>
+      <section className="stats-panel"><div className="stats-panel-heading"><div><p className="eyebrow">{t('REPÈRES DE FORCE')}</p><h2>{t('Tes meilleurs lifts.')}</h2></div><button className="stats-text-button" onClick={onStrength}>{t('Ouvrir Force')} <Icon name="arrow" size={16}/></button></div><p className="stats-hint">{t('Meilleure charge réalisée sur la période : séries de Force et tests 1RM, jamais les objectifs prévus.')}</p>
+        {stats.records.length ? <div className="stats-records">{stats.records.map(record => <div key={record.id}><span><strong>{t(record.name)}</strong><small>{record.best ? `${record.best.tested ? t('1RM testé') : `${record.best.reps} ${t('répétitions')}`} · ${dateLabel(record.best.date)}` : t('Pas encore de performance')}</small>{record.testedBest && !record.best?.tested && <small>{t('Meilleur 1RM testé')} : {format(toDisplayWeight(record.testedBest.weight,unit))} {unit}</small>}</span><strong>{record.best ? format(toDisplayWeight(record.best.weight,unit)) : '—'} <small>{unit}{record.weighted ? ` ${t('de lest')}` : ''}</small></strong></div>)}</div> : <ChartEmpty title="Tes records viendront ici" description="Crée ton premier bloc et enregistre tes séries dans Force."/>}
+        <div className="stats-volume-note"><Icon name="strength" size={18}/><div><strong>{format(toDisplayWeight(stats.volume,unit),0)} {unit}·reps</strong><span>{t('Volume de force réalisé : charge × répétitions, hors poids du corps.')}</span></div></div></section>
     </div>
     {points.length>0 && <p className="stats-method">{t(exercise?.name ?? '')} · {t('Volume réalisé')} : {format(toDisplayWeight(selectedVolume,unit),0)} {unit}·reps. {t('L’export contient toute la période et tous les exercices, indépendamment du filtre du graphique.')}</p>}
+    {maxForm && onSaveMax && <TestedMaxForm initial={maxForm === 'new' ? undefined : maxForm} exercises={stats.exercises} selectedId={exercise?.id} onSave={async value => { await onSaveMax(value); setExerciseId(value.exerciseId); }} onRemove={onRemoveMax} onClose={() => setMaxForm(undefined)}/>}
   </section>;
 }
 
@@ -106,6 +125,7 @@ export function Statistics({ userId, onNutrition, onStrength }: { userId: string
   const [source,setSource]=useState<StatsSource>();
   const [error,setError]=useState('');
   const [reload,setReload]=useState(0);
+  const owner = useRef(userId); owner.current = userId;
   useEffect(()=>{
     let active=true;setSource(undefined);setError('');
     void loadStatistics(userId).then(data=>{if(active)setSource(data);}).catch(()=>{if(active)setError(t('Impossible de charger tes statistiques. Réessaie.'));});
@@ -113,5 +133,12 @@ export function Statistics({ userId, onNutrition, onStrength }: { userId: string
   },[userId,reload]);
   if(error)return <div className="stats-panel" role="alert">{error}<button className="btn btn-secondary" onClick={()=>setReload(value=>value+1)}>{t('Réessayer')}</button></div>;
   if(!source)return <div className="loading-panel" role="status"><span className="loading-spinner"/>{t('Chargement des statistiques…')}</div>;
-  return <StatisticsDashboard source={source} onNutrition={onNutrition} onStrength={onStrength} onRefresh={()=>setReload(value=>value+1)}/>;
+  return <StatisticsDashboard key={userId} source={source} onNutrition={onNutrition} onStrength={onStrength} onRefresh={()=>setReload(value=>value+1)} onSaveMax={async value => {
+    const saved = await saveTestedMax(userId, value);
+    if (owner.current !== userId) return;
+    setSource(previous => previous ? { ...previous, workouts: [...previous.workouts.filter(item => item.id !== saved.id), saved] } : previous);
+  }} onRemoveMax={async id => {
+    await removeTestedMax(userId, id);
+    if (owner.current === userId) setSource(previous => previous ? { ...previous, workouts: previous.workouts.filter(item => item.id !== id) } : previous);
+  }}/>;
 }

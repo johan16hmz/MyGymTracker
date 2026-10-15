@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 import type { Workout } from './types';
 import { isNutritionRecord } from './nutritionService';
 import { sortWorkoutsByLastModified, stampWorkoutExercises } from './workoutOrder';
+import { isTestedMaxRecord } from './testedMaxes';
 
 function checkClient() {
   if (!supabase) {
@@ -44,7 +45,7 @@ export async function getUserWorkouts(userId: string) {
       records.push(...(data ?? []) as Workout[]);
       if(!data || data.length<500)break;
     }
-    return { success: true, data: sortWorkoutsByLastModified(records.filter(workout => !isNutritionRecord(workout))) };
+    return { success: true, data: sortWorkoutsByLastModified(records.filter(workout => !isNutritionRecord(workout) && !isTestedMaxRecord(workout))) };
   } catch (error) {
     console.error('Erreur récupération séances:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue', data: [] as Workout[] };

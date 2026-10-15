@@ -52,6 +52,8 @@ export async function createStatisticsWorkbook(stats: Statistics, unit: WeightUn
   for (const week of stats.weeks) weeks.addRow([excelDate(week.date),week.days,week.sets,weight(week.volume)]);
   const sessions = makeSheet('Séances',tr('Entraînements validés','Completed training sessions'),[tr('Date','Date'),tr('Modèle utilisé','Template used'),tr('Type','Type'),tr('Note','Note')],[18,34,18,52],tr('Validations uniquement. Les dates de création des modèles sont exclues.','Completions only. Template creation dates are excluded.'));
   for (const session of [...stats.sessions].sort((a,b)=>a.date.localeCompare(b.date))) sessions.addRow([excelDate(session.date),session.name,session.source==='strength'?tr('Force','Strength'):tr('Séances','Workouts'),session.note || null]);
+  const tests = makeSheet('1RM testés', tr('Maximums réellement testés','Tested one-rep maximums'), [tr('Date','Date'),tr('Exercice','Exercise'),`1RM (${unit})`,tr('Type de charge','Load type'),tr('Note','Note')], [18,28,20,28,52], tr('Tests réussis, distincts des estimations. Exclus du nombre et du volume des séries de travail.','Successful tests, separate from estimates. Excluded from working-set count and volume.'));
+  for (const value of stats.maxTests) tests.addRow([excelDate(value.date),value.exercise,weight(value.weight),value.weighted?tr('Lest ajouté','Added weight'):tr('Charge externe','External load'),value.note || null]);
   summary.addRow([tr('Jours d’entraînement uniques','Unique training days'),stats.trainingDates.length,tr('jours','days')]);
   summary.addRow([tr('Séries de force réalisées','Logged strength sets'),stats.logs.length,tr('séries','sets')]);
   const volumeRow = summary.addRow([tr('Volume de force hors poids du corps','Strength volume excluding body weight'),null,`${unit}·reps`]);
@@ -60,6 +62,7 @@ export async function createStatisticsWorkbook(stats: Statistics, unit: WeightUn
   summary.addRow([tr('Semaines dans la période','Weeks in the period'),stats.weeks.length,tr('semaines','weeks')]);
   summary.addRow([tr('Dernier poids connu (hors filtre de période)','Latest known weight (outside period filter)'),stats.latestWeight===undefined?null:weight(stats.latestWeight),unit]);
   summary.addRow([tr('Pesées datées dans la période','Dated measurements in period'),stats.weights.length,tr('mesures','measurements')]);
+  summary.addRow([tr('Tests 1RM réussis','Successful 1RM tests'),stats.maxTests.length,tr('tests','tests')]);
   for (const sheet of book.worksheets) {
     if (sheet.rowCount > 5) sheet.autoFilter = { from: {row:5,column:1}, to: {row:sheet.rowCount,column:sheet.columnCount} };
     for (let index=6;index<=sheet.rowCount;index++) {
@@ -76,6 +79,7 @@ export async function createStatisticsWorkbook(stats: Statistics, unit: WeightUn
   for(let index=6;index<=force.rowCount;index++) { force.getCell(`D${index}`).numFmt='#,##0.00';force.getCell(`H${index}`).numFmt='#,##0.00';force.getCell(`F${index}`).numFmt='0.0';force.getCell(`J${index}`).numFmt='0.0';force.getCell(`K${index}`).numFmt='#,##0.00'; }
   for(let index=6;index<=body.rowCount;index++)body.getCell(`B${index}`).numFmt='0.0';
   for(let index=6;index<=weeks.rowCount;index++)weeks.getCell(`D${index}`).numFmt='#,##0.00';
+  for(let index=6;index<=tests.rowCount;index++)tests.getCell(`C${index}`).numFmt='#,##0.00';
   summary.getCell('B8').numFmt='#,##0.00';summary.getCell('B11').numFmt='0.0';
   summary.views=[{showGridLines:false}];
   // Long context sits above the tables; give it room without merging data cells.

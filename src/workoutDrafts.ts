@@ -1,4 +1,4 @@
-import type { Workout } from './types';
+import type { Workout, Set } from './types';
 
 export interface WorkoutDraft {
   version: 1;
@@ -18,6 +18,7 @@ function decode(raw: string | null): WorkoutDraft | undefined {
     const workout = draft?.workout;
     if (draft.version !== 1 || typeof draft.updatedAt !== 'string' || !['create', 'edit'].includes(draft.mode) || typeof workout?.id !== 'string' || typeof workout.name !== 'string' || typeof workout.date !== 'string' || !Array.isArray(workout.exercises)) return;
     if (!workout.exercises.every((ex: any) => typeof ex?.id === 'string' && typeof ex.name === 'string' && Array.isArray(ex.sets) && ex.sets.every((set: any) => typeof set?.id === 'string' && Number.isFinite(set.weight) && Number.isFinite(set.reps)))) return;
+    if (!workout.exercises.every((ex: any) => ex.alternatives === undefined || (Array.isArray(ex.alternatives) && ex.alternatives.every((variant: any) => typeof variant?.id === 'string' && typeof variant.name === 'string' && Array.isArray(variant.sets) && variant.sets.every((set: any) => typeof set?.id === 'string' && Number.isFinite(set.weight) && Number.isFinite(set.reps)))))) return;
     if (!draft.repsInputValues || typeof draft.repsInputValues !== 'object' || !Object.values(draft.repsInputValues).every(value => typeof value === 'string')) return;
     return draft;
   } catch { return; }
@@ -49,12 +50,13 @@ export function removeWorkoutDraft(userId: string, id?: string) {
 }
 
 export function applyDraftReps(workout: Workout, values: Record<string, string>): Workout {
-  return { ...workout, exercises: workout.exercises.map(ex => ({ ...ex, sets: ex.sets.map(set => {
+  const apply = (sets: Set[]) => sets.map(set => {
     const raw = values[set.id];
     if (raw === undefined) return set;
     const parts = raw.trim().split('-').map(value => parseInt(value.trim(), 10) || 0);
     return parts.length > 1
       ? { ...set, reps: 0, repsMin: parts[0], repsMax: parts[1] }
       : { ...set, reps: parts[0], repsMin: 0, repsMax: 0 };
-  }) })) };
+  });
+  return { ...workout, exercises: workout.exercises.map(ex => ({ ...ex, sets: apply(ex.sets), ...(ex.alternatives ? { alternatives: ex.alternatives.map(variant => ({ ...variant, sets: apply(variant.sets) })) } : {}) })) };
 }

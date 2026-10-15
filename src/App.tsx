@@ -97,9 +97,14 @@ function App() {
   };
 
   const handleUpdateWorkout = async (workout: Workout) => {
+    const ownerId = userId;
     const result = await updateWorkout(workout.id, workout);
+    if (activeUserId.current !== ownerId) return;
     if (result.success && 'data' in result && result.data) {
       setWorkouts(prev => prev.map(w => w.id === workout.id ? result.data : w));
+      setSelectedWorkout(previous => previous?.id === workout.id ? result.data : previous);
+    } else {
+      throw new Error('Enregistrement impossible. Réessaie.');
     }
   };
 
@@ -237,6 +242,7 @@ function App() {
         {view === 'detail' && selectedWorkout && (
           <WorkoutDetail
             workout={selectedWorkout}
+            onUpdate={handleUpdateWorkout}
             onEdit={handleEditWorkout}
             onDelete={handleDeleteWorkout}
             onBack={handleBackToList}

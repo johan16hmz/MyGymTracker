@@ -27,6 +27,8 @@ const exerciseSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),
   sets: z.array(setSchema).default([]),
+  activeVariantId: z.string().optional(),
+  alternatives: z.array(z.object({id:z.string(),name:z.string().trim().min(1),sets:z.array(setSchema)})).optional(),
 });
 
 const workoutSchema = z.object({
@@ -90,6 +92,8 @@ function normalizeWorkout(input: z.infer<typeof workoutSchema>) {
       id: exercise.id || newId(),
       name: exercise.name,
       sets: exercise.sets.map(set => ({ ...set, id: set.id || newId() })),
+      ...(exercise.activeVariantId ? {activeVariantId:exercise.activeVariantId} : {}),
+      ...(exercise.alternatives ? {alternatives:exercise.alternatives.map(variant=>({...variant,sets:variant.sets.map(set=>({...set,id:set.id || newId()}))}))} : {}),
     })),
   };
 }
@@ -97,7 +101,7 @@ function normalizeWorkout(input: z.infer<typeof workoutSchema>) {
 async function fetchWorkouts(client: SupabaseClient, userId: string) {
   const { data, error } = await client.from('workouts').select('*').eq('user_id', userId).order('date', { ascending: false });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME && workout.name !== NUTRITION_MEAL_NAME && workout.name !== '__training_session__');
+  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME && workout.name !== NUTRITION_MEAL_NAME && workout.name !== '__training_session__' && workout.name !== '__strength_tested_max__');
 }
 
 const nutritionProfileSchema = z.object({

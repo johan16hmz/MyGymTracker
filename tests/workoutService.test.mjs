@@ -18,6 +18,7 @@ globalThis.draftTestClient = { from: () => query };
 const source = readFileSync(new URL('../src/workoutService.ts', import.meta.url), 'utf8')
   .replace("import { sortWorkoutsByLastModified, stampWorkoutExercises } from './workoutOrder';", readFileSync(new URL('../src/workoutOrder.ts', import.meta.url), 'utf8').replace("import type { Exercise, Workout } from './types';", ''))
   .replace("import { supabase } from './supabaseClient';", 'const supabase = globalThis.draftTestClient;')
+  .replace("import { isTestedMaxRecord } from './testedMaxes';", "const isTestedMaxRecord = workout => workout.name === '__strength_tested_max__';")
   .replace("import { isNutritionRecord } from './nutritionService';", 'const isNutritionRecord = () => false;');
 const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext } });
 const { addWorkout, updateWorkout, getUserWorkouts } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
@@ -61,4 +62,17 @@ test('les modèles ne disparaissent pas quand l’historique dépasse 500 entré
   response={data:Array.from({length:501},(_,index)=>({id:`record-${index}`,name:'Test',date:'2026-10-01',exercises:[]})),error:null};
   const result=await getUserWorkouts('alice');assert.equal(result.data.length,501);
   assert.equal(ownerFilters.filter(([key,value])=>key==='user_id' && value==='alice').length,2);
+});
+
+test('les tests 1RM ne sont jamais affichés comme modèles de séances',async()=>{
+  response={data:[{id:'model',name:'Upper',date:'2026-10-15',exercises:[]},{id:'max',name:'__strength_tested_max__',date:'2026-10-15',exercises:[]}],error:null};
+  assert.deepEqual((await getUserWorkouts('alice')).data.map(row=>row.id),['model']);
+});
+
+test('les variantes et leurs charges survivent à la sauvegarde des séances',async()=>{
+  const exercise={id:'press',name:'Machine',activeVariantId:'machine',sets:[{id:'m',weight:45,reps:10}],alternatives:[{id:'press',name:'Haltères',sets:[{id:'d',weight:22,reps:8}]}]};
+  response={data:{id:'model',name:'Upper',date:'2026-10-15',exercises:[exercise]},error:null};
+  await updateWorkout('model',{exercises:[exercise]});
+  assert.deepEqual(payloads.at(-1).exercises[0].alternatives,exercise.alternatives);
+  assert.equal(payloads.at(-1).exercises[0].activeVariantId,'machine');
 });
