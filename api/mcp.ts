@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Workout, Exercise } from '../src/types';
 import { createStrengthBlock } from '../src/strength.js';
 import type { StrengthBlock } from '../src/strength';
-import { estimateCalories, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME } from '../src/nutrition.js';
+import { estimateCalories, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME, NUTRITION_MEAL_NAME } from '../src/nutrition.js';
 import type { FoodEntry, NutritionDay, NutritionProfile } from '../src/nutrition';
 import { normalizeOpenFoodFacts } from '../src/nutritionFood.js';
 import { profileWithWeightHistory } from '../src/statistics.js';
@@ -97,7 +97,7 @@ function normalizeWorkout(input: z.infer<typeof workoutSchema>) {
 async function fetchWorkouts(client: SupabaseClient, userId: string) {
   const { data, error } = await client.from('workouts').select('*').eq('user_id', userId).order('date', { ascending: false });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME && workout.name !== '__training_session__');
+  return ((data ?? []) as Workout[]).filter(workout => workout.name !== NUTRITION_PROFILE_NAME && workout.name !== NUTRITION_DAY_NAME && workout.name !== NUTRITION_MEAL_NAME && workout.name !== '__training_session__');
 }
 
 const nutritionProfileSchema = z.object({

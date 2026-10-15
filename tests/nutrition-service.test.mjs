@@ -5,9 +5,10 @@ import ts from 'typescript';
 
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
+const mealsUrl=compile(readFileSync(new URL('../src/nutritionMeals.ts',import.meta.url),'utf8'));
 const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
 const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
-let calls=[];let record;let health={data:null,error:{code:'PGRST205'}};let written;let historyRecords=[];let page;
+let calls=[];let record;let health={data:null,error:{code:'PGRST205'}};let written;let historyRecords=[];let page;let writeError=null;
 globalThis.nutritionTestClient={from(table){
   const query={
     select(columns){calls.push({table,operation:'select',columns});return query;},
@@ -20,12 +21,12 @@ globalThis.nutritionTestClient={from(table){
     then(resolve,reject){return Promise.resolve({data:historyRecords.slice(page[0],page[1]+1),error:null}).then(resolve,reject);},
     async limit(){return {data:record?[record]:[],error:null};},
     async maybeSingle(){return health;},
-    async single(){return {data:{id:'saved',...written},error:null};},
+    async single(){return {data:writeError?null:{id:'saved',...written},error:writeError};},
   };
   return query;
 }};
-const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
-const {loadNutritionDay,saveNutritionDay,saveNutritionProfile,loadRecentFoods}=await import(compile(source));
+const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './nutritionMeals';",`from ${JSON.stringify(mealsUrl)};`).replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
+const {loadNutritionDay,saveNutritionDay,saveNutritionProfile,loadRecentFoods,loadSavedMeals,saveSavedMeal,isNutritionRecord}=await import(compile(source));
 const date='2026-10-07';
 
 test('nutrition remains usable before the optional Health migration, with owner and date filters',async()=>{
@@ -84,4 +85,32 @@ test('nutrition saves refined activity inputs alongside the owner profile and we
   for(const key of ['goalDate','dailyActivity','sessionsPerWeek','sessionMinutes','trainingKind','equationSex'])assert.equal(saved[key],profile[key]);
   assert.equal(saved.weightHistory[0].weightKg,79);
   assert.ok(calls.some(call=>call.column==='user_id' && call.value==='owner-a'));
+});
+
+const savedMeal={id:'9fcd5aa2-2eae-40a5-b91c-f039ee520365',name:'Déjeuner',meal:'lunch',updatedAt:'2026-10-15T08:00:00Z',items:[{quantity:100,food:{name:'Riz',source:'manual',unit:'g',kcal100:130,protein100:3,carbs100:28,fat100:.5}}]};
+test('saved meals use a separate owner-scoped record with a stable ID and are not workouts',async()=>{
+  calls=[];record=undefined;writeError=null;
+  await saveSavedMeal('owner-a',savedMeal);
+  assert.equal(written.id,savedMeal.id);assert.equal(written.user_id,'owner-a');
+  assert.equal(written.name,'__nutrition_meal__');assert.deepEqual(written.exercises[0].nutritionMeal,savedMeal);
+  assert.equal(isNutritionRecord({...written,id:savedMeal.id}),true);
+  assert.ok(calls.some(call=>call.column==='user_id' && call.value==='owner-a'));
+  calls=[];record={id:savedMeal.id};
+  await saveSavedMeal('owner-a',{...savedMeal,archived:true});
+  assert.ok(calls.some(call=>call.operation==='update'));
+  assert.ok(calls.filter(call=>call.column==='user_id' && call.value==='owner-a').length>=2);
+  assert.ok(calls.filter(call=>call.column==='name' && call.value==='__nutrition_meal__').length>=2);
+  assert.equal(written.exercises[0].nutritionMeal.archived,true);
+  writeError={message:'offline'};
+  await assert.rejects(saveSavedMeal('owner-a',savedMeal),/saisies sont conservées/);
+  writeError=null;
+});
+
+test('saved meal loading paginates and retains archived meals for restoration',async()=>{
+  calls=[];historyRecords=Array.from({length:501},(_,i)=>({id:savedMeal.id,exercises:[{nutritionMeal:{...savedMeal,archived:i===0}}]}));
+  const meals=await loadSavedMeals('owner-a');
+  assert.equal(meals.length,501);assert.equal(meals[0].archived,true);
+  assert.deepEqual(calls.filter(call=>call.operation==='range').map(call=>[call.start,call.end]),[[0,499],[500,999]]);
+  assert.equal(calls.filter(call=>call.column==='user_id' && call.value==='owner-a').length,2);
+  assert.equal(calls.filter(call=>call.column==='name' && call.value==='__nutrition_meal__').length,2);
 });

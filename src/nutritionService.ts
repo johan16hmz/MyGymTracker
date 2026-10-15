@@ -1,12 +1,42 @@
 import { supabase } from './supabaseClient';
 import type { Workout } from './types';
-import type { NutritionDay, NutritionProfile } from './nutrition';
-import { localDate, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME } from './nutrition';
+import type { NutritionDay, NutritionProfile, SavedMeal } from './nutrition';
+import { localDate, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME, NUTRITION_MEAL_NAME } from './nutrition';
+import { validateSavedMeal } from './nutritionMeals';
 import { profileWithWeightHistory } from './statistics';
 import type { FoodHistoryEntry } from './nutritionHistory';
 
 export function isNutritionRecord(workout: Workout) {
-  return workout.name === NUTRITION_PROFILE_NAME || workout.name === NUTRITION_DAY_NAME || workout.exercises.some(exercise => !!exercise.nutritionProfile || !!exercise.nutritionDay);
+  return workout.name === NUTRITION_PROFILE_NAME || workout.name === NUTRITION_DAY_NAME || workout.name === NUTRITION_MEAL_NAME || workout.exercises.some(exercise => !!exercise.nutritionProfile || !!exercise.nutritionDay || !!exercise.nutritionMeal);
+}
+
+export async function loadSavedMeals(userId: string): Promise<SavedMeal[]> {
+  const meals: SavedMeal[] = [];
+  for(let offset=0;;offset+=500){
+    const {data,error}=await client().from('workouts').select('id,exercises').eq('user_id',userId).eq('name',NUTRITION_MEAL_NAME).order('id',{ascending:true}).range(offset,offset+499).abortSignal(AbortSignal.timeout(15000));
+    if(error)throw new Error('Impossible de charger les repas enregistrés. Réessaie.');
+    for(const record of data ?? []){
+      const meal = (record.exercises as Workout['exercises']).find(exercise=>exercise.nutritionMeal)?.nutritionMeal;
+      if(!meal)continue;
+      const saved={...meal,id:record.id};
+      validateSavedMeal(saved);
+      meals.push(saved);
+    }
+    if(!data || data.length<500)break;
+  }
+  return meals.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export async function saveSavedMeal(userId: string, meal: SavedMeal): Promise<void> {
+  validateSavedMeal(meal);
+  const {data:existing,error:readError}=await client().from('workouts').select('id').eq('user_id',userId).eq('name',NUTRITION_MEAL_NAME).eq('id',meal.id).abortSignal(AbortSignal.timeout(15000)).limit(1);
+  if(readError)throw new Error('Impossible de vérifier le repas enregistré. Réessaie.');
+  const payload={name:NUTRITION_MEAL_NAME,date:localDate(),exercises:[{id:meal.id,name:meal.name,sets:[],nutritionMeal:structuredClone(meal)}]};
+  const query=existing?.length
+    ? client().from('workouts').update(payload).eq('id',meal.id).eq('user_id',userId).eq('name',NUTRITION_MEAL_NAME)
+    : client().from('workouts').insert({...payload,id:meal.id,user_id:userId,created_at:new Date().toISOString()});
+  const {data,error}=await query.select('id').abortSignal(AbortSignal.timeout(15000)).single();
+  if(error || !data)throw new Error('Enregistrement du repas impossible. Tes saisies sont conservées.');
 }
 
 function client() {

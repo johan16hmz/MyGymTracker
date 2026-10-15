@@ -5,11 +5,14 @@ import { NutritionDiary } from '../src/components/NutritionDiary';
 import { NutritionFoodHistory } from '../src/components/NutritionFoodHistory';
 import { FoodComposer } from '../src/components/NutritionFoodComposer';
 import { ProfileForm } from '../src/components/Nutrition';
+import { NutritionSavedMeals } from '../src/components/NutritionSavedMeals';
+import type { SavedMealDraft } from '../src/components/NutritionSavedMeals';
+import { appendMealEntries } from '../src/nutritionMeals';
 import { goalDateInMonths, localDate } from '../src/nutrition';
 import { mergeFoodHistory } from '../src/nutritionHistory';
 import type { FoodHistoryEntry } from '../src/nutritionHistory';
 import { setLanguage } from '../src/i18n';
-import type { FoodEntry, Meal, NutritionDay, NutritionProfile } from '../src/nutrition';
+import type { FoodEntry, Meal, NutritionDay, NutritionProfile, SavedMeal } from '../src/nutrition';
 import '../src/ui.css';
 
 const profile:NutritionProfile={goal:'gain',targetKg:84,age:25,heightCm:180,weightKg:80,activity:'active',equationSex:'male',dailyActivity:'sedentary',sessionsPerWeek:4,sessionMinutes:60,trainingKind:'strength',goalDate:goalDateInMonths(4)};
@@ -22,19 +25,24 @@ function Preview(){
   const [days,setDays]=useState<Record<string,NutritionDay>>({});
   const [composer,setComposer]=useState<{meal:Meal;entry?:FoodEntry;initial?:FoodEntry}>();
   const [historyOpen,setHistoryOpen]=useState(false);
+  const [savedMeals,setSavedMeals]=useState<SavedMeal[]>([]);
+  const [savedDialog,setSavedDialog]=useState<{meal:Meal;initial?:SavedMealDraft}>();
   const [fail,setFail]=useState(false);
   const [dark,setDark]=useState(false);
   const [currentProfile,setCurrentProfile]=useState(profile);
   const [editingProfile,setEditingProfile]=useState(false);
   const saveDay=(next:NutritionDay)=>{setDay(next);setRecent(previous=>mergeFoodHistory(previous,next.date,next.entries));};
+  const openSaved=(meal:Meal,save=false)=>setSavedDialog({meal,...(save?{initial:{meal,items:day.entries.filter(entry=>entry.meal===meal).map(({food,quantity})=>({food,quantity}))}}:{})});
+  const maybeFail=()=>{if(fail){setFail(false);throw new Error('Échec de test : tes saisies sont conservées, réessaie.');}};
   document.documentElement.dataset.theme=dark?'dark':'light';
   return <div className="app"><header className="app-header"><h2>MyGymTracker</h2><p className="nav-caption">APERÇU LOCAL</p><p>Données fictives uniquement</p></header><main className="app-main">
     <div className="stats-preview-controls">Nutrition · aucun envoi vers ton compte<button className="btn btn-small" onClick={()=>setDark(value=>!value)}>Changer le thème</button><button className="btn btn-small" onClick={()=>setLanguage('fr')}>Français</button><button className="btn btn-small" onClick={()=>setLanguage('en')}>English</button></div>
     {editingProfile ? <ProfileForm initial={currentProfile} saving={false} onCancel={()=>setEditingProfile(false)} onSave={async(next)=>{setCurrentProfile(next);setEditingProfile(false);}}/> : <NutritionDiary profile={currentProfile} day={day} date={day.date} busy={false} loading={false} error=""
       onDate={date=>{setDays(previous=>({...previous,[day.date]:day}));setDay(days[date] ?? {date,entries:[]});}}
-      onHistory={()=>setHistoryOpen(true)} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})}
+      onHistory={()=>setHistoryOpen(true)} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})} onSavedMeals={meal=>openSaved(meal)} onSaveMeal={meal=>openSaved(meal,true)}
       onRemove={entry=>saveDay({...day,entries:day.entries.filter(item=>item.id!==entry.id)})} onSteps={async(count)=>saveDay({...day,steps:{count,source:'manual',updatedAt:new Date().toISOString()}})} onWater={async(waterMl)=>saveDay({...day,waterMl})} onRefresh={()=>{}} onHealthConnect={()=>alert('Démo locale : Santé reste désactivée.')}/>}
     {historyOpen && <NutritionFoodHistory entries={recent} loading={false} error="" onRetry={()=>{}} onClose={()=>setHistoryOpen(false)} onSelect={(entry,meal)=>{setHistoryOpen(false);setComposer({meal,initial:entry});}}/>}
+    {savedDialog && <NutritionSavedMeals meals={savedMeals} meal={savedDialog.meal} initial={savedDialog.initial} loading={false} error="" onRetry={()=>{}} onSave={async(saved)=>{maybeFail();setSavedMeals(previous=>[saved,...previous.filter(item=>item.id!==saved.id)]);}} onAdd={async(items)=>{maybeFail();saveDay(appendMealEntries(day,items));}} onClose={()=>setSavedDialog(undefined)}/>}
     {composer && <FoodComposer meal={composer.meal} existing={composer.entry} initial={composer.initial} recent={recent} onSave={async(entry)=>{if(fail){setFail(false);throw new Error('Échec de test : tes saisies sont conservées, réessaie.');}saveDay({...day,entries:[...day.entries.filter(item=>item.id!==entry.id),entry]});}} onClose={()=>setComposer(undefined)} renderScanner={()=><p>Caméra non nécessaire pour cet aperçu.</p>}/>}
     <label style={{fontSize:12,display:'flex',gap:10,marginTop:25}}><input type="checkbox" checked={fail} onChange={event=>setFail(event.target.checked)}/>Simuler une erreur d’enregistrement</label>
   </main></div>;

@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { locale, t, useLanguage, useWeightUnit } from '../i18n';
 import { estimateCalories, goalDateInMonths, localDate, macroTargets, trainingActivity } from '../nutrition';
-import type { DailyActivity, TrainingKind, EquationSex, FoodEntry, Meal, NutritionDay, NutritionGoal, NutritionProfile } from '../nutrition';
-import { loadNutritionDay, loadNutritionProfile, loadRecentFoods, saveNutritionDay, saveNutritionProfile } from '../nutritionService';
+import type { DailyActivity, TrainingKind, EquationSex, FoodEntry, Meal, NutritionDay, NutritionGoal, NutritionProfile, SavedMeal } from '../nutrition';
+import { loadNutritionDay, loadNutritionProfile, loadRecentFoods, loadSavedMeals, saveSavedMeal, saveNutritionDay, saveNutritionProfile } from '../nutritionService';
 import type { Workout } from '../types';
 import { DecimalInput } from './DecimalInput';
 import { FoodComposer } from './NutritionFoodComposer';
@@ -10,6 +10,9 @@ import { NutritionDiary } from './NutritionDiary';
 import { NutritionFoodHistory } from './NutritionFoodHistory';
 import { mergeFoodHistory } from '../nutritionHistory';
 import type { FoodHistoryEntry } from '../nutritionHistory';
+import { appendMealEntries } from '../nutritionMeals';
+import { NutritionSavedMeals } from './NutritionSavedMeals';
+import type { SavedMealDraft } from './NutritionSavedMeals';
 
 const Scanner=lazy(()=>import('./NutritionScanner').then(module=>({default:module.NutritionScanner})));
 const round = (value: number) => Math.round(value * 10) / 10;
@@ -127,6 +130,11 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   const [day,setDay]=useState<NutritionDay>({date:localDate(),entries:[]});
   const [recent,setRecent]=useState<FoodHistoryEntry[]>([]);
   const [historyOpen,setHistoryOpen]=useState(false);
+  const [savedMeals,setSavedMeals]=useState<SavedMeal[]>([]);
+  const [savedMealsLoading,setSavedMealsLoading]=useState(true);
+  const [savedMealsError,setSavedMealsError]=useState('');
+  const [savedMealsReload,setSavedMealsReload]=useState(0);
+  const [savedMealDialog,setSavedMealDialog]=useState<{meal:Meal;initial?:SavedMealDraft}>();
   const [historyLoading,setHistoryLoading]=useState(true);
   const [historyError,setHistoryError]=useState('');
   const [historyReload,setHistoryReload]=useState(0);
@@ -145,7 +153,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   const editing=useRef(false);
   const weightEditing=useRef(false);
   scope.current=userId+'|'+date;
-  editing.current=!!composer || editingProfile || historyOpen;
+  editing.current=!!composer || editingProfile || historyOpen || !!savedMealDialog;
   useEffect(()=>{
     let active=true;setLoadingProfile(true);setProfileError('');
     void loadNutritionProfile(userId).then(result=>{if(active){setProfile(result.profile);setProfileRecord(result.record);}}).catch(error=>{if(active)setProfileError(error.message);}).finally(()=>{if(active)setLoadingProfile(false);});
@@ -157,11 +165,16 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
     return()=>{active=false;};
   },[userId,historyReload]);
   useEffect(()=>{
+    let active=true;setSavedMeals([]);setSavedMealsLoading(true);setSavedMealsError('');
+    void loadSavedMeals(userId).then(value=>{if(active)setSavedMeals(value);}).catch(error=>{if(active)setSavedMealsError(error.message);}).finally(()=>{if(active)setSavedMealsLoading(false);});
+    return()=>{active=false;};
+  },[userId,savedMealsReload]);
+  useEffect(()=>{
     let active=true;setLoadingDay(true);setDayError('');
     void loadNutritionDay(userId,date).then(result=>{if(active)setDay(result.day);}).catch(error=>{if(active)setDayError(error.message);}).finally(()=>{if(active)setLoadingDay(false);});
     return()=>{active=false;};
   },[userId,date,reload]);
-  useEffect(()=>{setComposer(undefined);setHistoryOpen(false);setEditingProfile(false);},[userId,date]);
+  useEffect(()=>{setComposer(undefined);setHistoryOpen(false);setEditingProfile(false);setSavedMealDialog(undefined);},[userId,date]);
   useEffect(()=>{
     // Pick up server-side Health deliveries on return to the app, without
     // replacing open form inputs or polling while the app is in the background.
@@ -185,8 +198,23 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
       const latest=await loadNutritionDay(userId,date);
       if(scope.current!==owner)throw new Error(t('La journée a changé. Réessaie.'));
       const next=change(latest.day);await saveNutritionDay(userId,next,latest.record);
+      if(scope.current!==owner)throw new Error(t('La journée a changé. Réessaie.'));
       if(scope.current===owner){setDay(next);setRecent(previous=>mergeFoodHistory(previous,next.date,next.entries));}
     }finally{busy.current=false;setSaving(false);}
+  };
+  const persistSavedMeal=async(next:SavedMeal)=>{
+    if(busy.current)throw new Error(t('Un enregistrement est déjà en cours.'));
+    const owner=scope.current;busy.current=true;setSaving(true);
+    try{
+      await saveSavedMeal(userId,next);
+      if(scope.current!==owner)throw new Error(t('La journée a changé. Réessaie.'));
+      setSavedMeals(previous=>[next,...previous.filter(item=>item.id!==next.id)]);
+    }finally{busy.current=false;setSaving(false);}
+  };
+  const openSavedMeals=(meal:Meal,save=false)=>{
+    const items=day.entries.filter(entry=>entry.meal===meal).map(({food,quantity})=>({food:structuredClone(food),quantity}));
+    setSavedMealDialog({meal,...(save?{initial:{meal,items}}:{})});
+    setSavedMealsReload(value=>value+1);
   };
   if(loadingProfile)return <div className="loading-panel" role="status"><span className="loading-spinner"/>{t('Chargement de ton journal nutrition…')}</div>;
   if(profileError)return <div className="nutrition-error" role="alert">{profileError}<button className="btn btn-secondary" onClick={()=>setProfileReload(value=>value+1)}>{t('Réessayer')}</button></div>;
@@ -194,6 +222,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   return <>
     <NutritionDiary profile={profile} day={day} date={date} busy={saving} loading={loadingDay} error={dayError} focusWeight={openWeight}
       onHistory={()=>setHistoryOpen(true)}
+      onSavedMeals={meal=>openSavedMeals(meal)} onSaveMeal={meal=>openSavedMeals(meal,true)}
       onDate={next=>{if(!busy.current){setOpenWeight(false);setDate(next);}}} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})}
       onRemove={entry=>{if(confirm(t('Retirer cet aliment du journal ?')))void persistDay(latest=>({...latest,entries:latest.entries.filter(item=>item.id!==entry.id)})).catch(error=>setDayError(error.message));}}
       onSteps={count=>persistDay(latest=>({...latest,steps:{count,source:'manual',updatedAt:new Date().toISOString()}}))}
@@ -202,6 +231,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
       onWeightEditingChange={active=>{weightEditing.current=active;}}
       onRefresh={()=>setReload(value=>value+1)}/>
     {historyOpen && <NutritionFoodHistory entries={recent} loading={historyLoading} error={historyError} onRetry={()=>setHistoryReload(value=>value+1)} onClose={()=>setHistoryOpen(false)} onSelect={(entry,meal)=>{setHistoryOpen(false);setComposer({meal,initial:entry});}}/>}
+    {savedMealDialog && <NutritionSavedMeals meals={savedMeals} meal={savedMealDialog.meal} initial={savedMealDialog.initial} loading={savedMealsLoading} error={savedMealsError} onRetry={()=>setSavedMealsReload(value=>value+1)} onSave={persistSavedMeal} onAdd={entries=>persistDay(latest=>appendMealEntries(latest,entries))} onClose={()=>setSavedMealDialog(undefined)}/>}
     {composer && <FoodComposer key={composer.entry?.id ?? composer.initial?.id ?? composer.meal} meal={composer.meal} existing={composer.entry} initial={composer.initial} recent={recent}
       onSave={entry=>persistDay(latest=>({...latest,entries:[...latest.entries.filter(item=>item.id!==entry.id),entry]}))}
       onClose={()=>setComposer(undefined)} renderScanner={(onCode,onError)=><Suspense fallback={<p role="status">{t('Chargement de la caméra…')}</p>}><Scanner onCode={onCode} onError={onError}/></Suspense>}/>}

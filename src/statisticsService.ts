@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { NUTRITION_PROFILE_NAME, NUTRITION_DAY_NAME } from './nutrition';
+import { NUTRITION_PROFILE_NAME, NUTRITION_DAY_NAME, NUTRITION_MEAL_NAME } from './nutrition';
 import type { Workout } from './types';
 import type { StatsSource } from './statistics';
 
@@ -14,7 +14,7 @@ export async function loadStatistics(userId: string): Promise<StatsSource> {
     if (!data || data.length < 500) break;
   }
   return {
-    workouts: records.filter(row => row.name !== NUTRITION_PROFILE_NAME && row.name !== NUTRITION_DAY_NAME),
+    workouts: records.filter(row => row.name !== NUTRITION_PROFILE_NAME && row.name !== NUTRITION_DAY_NAME && row.name !== NUTRITION_MEAL_NAME),
     profile: records.flatMap(row => row.exercises).find(ex => ex.nutritionProfile)?.nutritionProfile,
     days: records.flatMap(row => row.exercises).flatMap(ex => ex.nutritionDay ? [ex.nutritionDay] : []),
   };

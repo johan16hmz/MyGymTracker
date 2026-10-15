@@ -6,6 +6,7 @@ export type TrainingKind = 'strength' | 'strengthHard' | 'cardio' | 'mixed';
 export type Meal = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 export const NUTRITION_PROFILE_NAME = '__nutrition_profile__';
 export const NUTRITION_DAY_NAME = '__nutrition_day__';
+export const NUTRITION_MEAL_NAME = '__nutrition_meal__';
 
 export interface NutritionProfile {
   weightHistory?: { date: string; weightKg: number }[];
@@ -54,6 +55,15 @@ export interface FoodEntry {
   food: Food;
   quantity: number;
   addedAt: string;
+}
+
+export interface SavedMeal {
+  id: string;
+  name: string;
+  meal: Meal;
+  items: { food: Food; quantity: number }[];
+  updatedAt: string;
+  archived?: boolean;
 }
 
 export interface NutritionDay {
@@ -183,7 +193,7 @@ export function macroTargets(profile: NutritionProfile, calories:number) {
   return {protein,carbs,fat,fiber,proteinPerKg,proteinLimited:requestedProtein>proteinBudget};
 }
 
-export function sumEntries(entries: FoodEntry[]) {
+export function sumEntries(entries: Pick<FoodEntry, 'food' | 'quantity'>[]) {
   return entries.reduce((sum, entry) => {
     const amount = foodTotals(entry.food, entry.quantity);
     return { kcal: sum.kcal + amount.kcal, protein: sum.protein + amount.protein, carbs: sum.carbs + amount.carbs, fat: sum.fat + amount.fat, fiber: sum.fiber + amount.fiber };

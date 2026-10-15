@@ -1,5 +1,5 @@
 import type { StrengthBlock } from './strength';
-import type { NutritionDay, NutritionProfile } from './nutrition';
+import type { NutritionDay, NutritionProfile, SavedMeal } from './nutrition';
 
 export interface Set {
   id: string;
@@ -15,6 +15,7 @@ export interface Exercise {
   strengthBlock?: StrengthBlock;
   nutritionProfile?: NutritionProfile;
   nutritionDay?: NutritionDay;
+  nutritionMeal?: SavedMeal;
   id: string;
   name: string;
   sets: Set[];

@@ -97,8 +97,8 @@
 .nutri-daily-note p { font-size:.77rem; }
 .nutri-source-note { font-size:.66rem; line-height:1.6; color:var(--text-muted); margin:24px 0 12px; }
 .nutri-source-note a { color:inherit; text-underline-offset:3px; }
-.nutri-overlay { position:fixed; inset:0; z-index:120; background:#07130db3; backdrop-filter:blur(7px); display:flex; justify-content:center; align-items:center; padding:24px; }
-.nutri-sheet { width:min(100%,640px); max-height:calc(100dvh - 48px); overflow:auto; overscroll-behavior:contain; border:1px solid var(--border); border-radius:24px; background:var(--surface); box-shadow:0 20px 100px #0004; padding:0 28px 16px; outline:0; }
+.nutri-overlay { position:fixed; inset:0; z-index:120; background:#07130db3; backdrop-filter:blur(7px); display:flex; justify-content:center; align-items:center; padding:24px; overscroll-behavior:none; }
+.nutri-sheet { width:min(100%,640px); max-height:calc(100dvh - 48px); min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-x pan-y pinch-zoom; border:1px solid var(--border); border-radius:24px; background:var(--surface); box-shadow:0 20px 100px #0004; padding:0 28px 16px; outline:0; }
 .nutri-sheet-handle { display:none; }
 .nutri-sheet-header { display:flex; align-items:center; justify-content:space-between; gap:15px; background:var(--surface); position:sticky; top:0; z-index:4; padding:23px 0 18px; border-bottom:1px solid var(--border); margin-bottom:20px; }
 .nutri-sheet-header h2 { font-size:1.35rem; letter-spacing:-.035em; line-height:1.3; }
@@ -226,3 +226,24 @@
 .nutri-timeline-metrics strong { color: var(--text); font-size: 1rem; }
 .nutri-timeline-journal { padding: 0 24px 18px; color: var(--text-muted); font-size: .8rem; line-height: 1.5; margin: 0; }
 @media(max-width:600px) { .nutri-timeline-metrics { grid-template-columns: 1fr; } .nutri-goal-timeline { padding: 16px; } }
+.nutri-meal-actions { display:flex; flex-wrap:wrap; gap:8px; padding:12px 18px; border-top:1px solid var(--border); }
+.nutri-meal-actions .btn { font-size:.74rem; padding:9px 12px; min-height:40px; }
+.nutri-saved-name { display:grid; gap:8px; margin:20px 0; color:var(--text-muted); font-size:.85rem; }
+.nutri-saved-items,.nutri-saved-list { display:grid; gap:14px; margin:20px 0; }
+.nutri-saved-item { display:grid; grid-template-columns:minmax(0,1fr) 110px 36px; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--border); }
+.nutri-saved-item strong { display:block; font-size:.85rem; overflow-wrap:anywhere; }
+.nutri-saved-item small { display:block; color:var(--text-muted); }
+.nutri-saved-item label { display:flex; align-items:center; gap:6px; }
+.nutri-saved-item input { padding:10px; }
+.nutri-saved-card { border:1px solid var(--border); background:var(--bg); border-radius:18px; padding:20px; }
+.nutri-saved-card > header { display:flex; justify-content:space-between; align-items:start; gap:16px; }
+.nutri-saved-card h3 { font-size:1.1rem; margin:4px 0 14px; }
+.nutri-saved-card > header > strong { white-space:nowrap; font-size:.9rem; }
+.nutri-saved-card small { color:var(--text-muted); }
+.nutri-saved-card ul { list-style:none; display:grid; gap:8px; margin:6px 0; }
+.nutri-saved-card li { display:flex; gap:12px; justify-content:space-between; font-size:.78rem; color:var(--text-muted); }
+.nutri-saved-card li span { overflow-wrap:anywhere; }
+.nutri-saved-card li strong { white-space:nowrap; }
+.nutri-saved-card footer { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.nutri-saved-card footer .btn { font-size:.75rem; padding:10px 12px; }
+@media(max-width:500px) { .nutri-saved-card { padding:16px; } .nutri-saved-item { grid-template-columns:minmax(0,1fr) 90px 30px; gap:8px; } .nutri-saved-card footer .btn-primary { width:100%; } }

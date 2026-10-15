@@ -57,12 +57,17 @@ test('volume is only actual external force load times repetitions, never body we
   assert.equal(buildStatistics(source,'84',today).volume,stats.volume);
 });
 
-let queries=[];
-globalThis.statsTestClient={from(table){const current={table};queries.push(current);const q={select(){return q;},eq(key,value){current[key]=value;return q;},order(key){current.order=key;return q;},range(start,end){current.range=[start,end];return q;},async abortSignal(){return {data:current.range[0]===0?Array.from({length:500},(_,i)=>({id:String(i),name:'test',date:today,exercises:[]})):[],error:null};}};return q;}};
+let queries=[];let includeSavedMeal=false;
+globalThis.statsTestClient={from(table){const current={table};queries.push(current);const q={select(){return q;},eq(key,value){current[key]=value;return q;},order(key){current.order=key;return q;},range(start,end){current.range=[start,end];return q;},async abortSignal(){return {data:current.range[0]===0?Array.from({length:500},(_,i)=>({id:String(i),name:includeSavedMeal && i===0?'__nutrition_meal__':'test',date:today,exercises:[]})):[],error:null};}};return q;}};
 const service=readFileSync(new URL('../src/statisticsService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.statsTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`);
 const {loadStatistics}=await import(compile(service));
 test('statistics load paginates and applies the owner filter on every page',async()=>{
   queries=[];const loaded=await loadStatistics('owner-a');assert.equal(loaded.workouts.length,500);
   assert.equal(queries.length,2);assert.ok(queries.every(q=>q.user_id==='owner-a' && q.order==='id'));
   assert.deepEqual(queries.map(q=>q.range),[[0,499],[500,999]]);
+});
+test('saved meal templates never appear as sports workout data',async()=>{
+  includeSavedMeal=true;
+  try{const loaded=await loadStatistics('owner-a');assert.equal(loaded.workouts.length,499);assert.ok(loaded.workouts.every(row=>row.name!=='__nutrition_meal__'));assert.equal(loaded.days.length,0);}
+  finally{includeSavedMeal=false;}
 });

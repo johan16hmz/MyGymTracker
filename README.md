@@ -44,6 +44,14 @@ Les portions usuelles ou celles de l’étiquette sont proposées, sans prescrip
 
 Profil et journées sont stockés dans la table Supabase `workouts` avec des marqueurs dédiés dans `exercises`, et exclus de la liste des séances. Ils utilisent les permissions du compte existant ; aucune migration SQL n’est nécessaire pour les repas. Le proxy `/api/food` ajoute un User-Agent identifiable pour Open Food Facts. En local, Vite fournit le même backend.
 
+### Repas enregistrés
+
+Dans chaque repas du journal, **Enregistrer ce repas** crée un modèle nommé à partir des aliments affichés, avec leurs marques et quantités. L’enregistrement du modèle ne rajoute pas ces aliments au journal. **Repas enregistrés** permet ensuite de chercher un modèle et d’ajouter tous ses aliments en une fois au repas et à la date sélectionnés, sans remplacer les entrées existantes. Chaque réutilisation reçoit de nouveaux identifiants ; une reprise après erreur réutilise les mêmes identifiants pour éviter les doublons.
+
+Les modèles sont modifiables (nom, quantités, retrait d’aliments) et archivables, avec restauration possible. Ils conservent une copie indépendante des aliments et n’altèrent jamais les journées déjà consommées. Chaque modèle utilise une ligne propriétaire de `workouts` nommée `__nutrition_meal__`, dans `exercises[].nutritionMeal`, distincte du profil et des journées. Les lectures paginées et mises à jour sont filtrées par compte ; ces lignes ne figurent ni dans les séances ni dans les statistiques sportives. Aucune migration ou nouvelle permission n’est nécessaire.
+
+Les fenêtres Nutrition sont rendues directement dans le corps de la page. Pendant leur ouverture, la page est immobilisée avec sa position conservée ; le défilement reste dans la fenêtre, y compris à ses limites. La fermeture restaure la position et le focus. Aperçu sans accès au compte : `http://127.0.0.1:5173/tests/nutrition-history-preview.html`.
+
 La réception automatique des pas Apple Santé **reste désactivée** à la demande de Johan. Son activation ultérieure nécessite une migration Supabase approuvée et un Raccourci autorisé sur son iPhone ; un site web ne lit pas directement HealthKit. Voir `supabase/NUTRITION_HEALTH.md`. L’ajustement calorique optionnel ne compte que les pas au-delà du seuil d’activité habituel et reste une estimation.
 
 Vérification locale : `node --test tests/nutrition.test.mjs`, puis `npm.cmd run build`.
