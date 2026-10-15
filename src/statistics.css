@@ -8,7 +8,6 @@
 .stats-max-callout p:not(.eyebrow) { color:var(--text-muted); font-size:.76rem; margin-top:6px; }
 .stats-max-callout .btn { flex-shrink:0; }
 .stats-tested-select { display:block; max-width:320px; margin-bottom:22px; }
-.tested-max-form-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
 @media(max-width:700px) { .stats-max-callout { align-items:stretch; flex-direction:column; padding:20px 16px; }.stats-header-actions { flex-wrap:wrap; } }
 .stats-training-definition { margin-bottom:20px; }
 :root[data-theme=dark] .stats-page { --stats-estimate-line:#bca7e7; }

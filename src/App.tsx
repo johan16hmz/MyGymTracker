@@ -254,6 +254,7 @@ function App() {
             key={`${userId}-${selectedWorkout?.id ?? 'new'}`}
             userId={userId}
             workout={selectedWorkout}
+            workouts={workouts}
             onSave={handleSaveWorkout}
             onCancel={() => {
               setView('list');

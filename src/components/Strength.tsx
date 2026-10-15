@@ -10,6 +10,8 @@ import { trainingSessions } from '../trainingSessions';
 import { TrainingHistory } from './TrainingHistory';
 import { strengthLogs } from '../statistics';
 import { StrengthWeightInput } from './StrengthWeightInput';
+import { StrengthTestedMaxes } from './StrengthTestedMaxes';
+import type { TestedMax } from '../testedMaxes';
 
 interface Props {
   userId: string;
@@ -19,6 +21,9 @@ interface Props {
   onRecordSession?: (workout:Workout,week:number,prescriptionId?:string) => void;
   onRemoveSession?: (id:string) => Promise<void>;
   saveBlock?: typeof saveStrengthBlock;
+  maxTests?: TestedMax[];
+  onSaveMax?: (value:TestedMax) => Promise<void>;
+  onRemoveMax?: (id:string) => Promise<void>;
 }
 
 const n = (value: number) => value.toLocaleString(locale());
@@ -83,7 +88,7 @@ function StrengthLoadEditor({ exercise, bodyWeight, saving, onApply }: {
   </form>;
 }
 
-export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordSession, onRemoveSession, saveBlock = saveStrengthBlock }: Props) {
+export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordSession, onRemoveSession, saveBlock = saveStrengthBlock, maxTests, onSaveMax, onRemoveMax }: Props) {
   useLanguage();
   const weightUnit = useWeightUnit();
   const records = workouts.filter(workout => getStrengthBlock(workout));
@@ -171,6 +176,7 @@ export function Strength({ userId, workouts, onSaved, onPendingChange, onRecordS
     </div>
     {error && <p className="force-error" role="alert">{error}</p>}
     {message && <p className="force-success" role="status">{message}</p>}
+    <StrengthTestedMaxes key={userId} userId={userId} exercises={recordBlocks.flatMap(item=>item.exercises.map(exercise=>({id:exercise.id,name:exercise.name,weighted:exercise.weighted})))} tests={maxTests} onSave={onSaveMax} onRemove={onRemoveMax}/>
 
     {creating ? <form className="force-panel" onSubmit={event => {
       event.preventDefault();

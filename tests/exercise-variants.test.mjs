@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import ts from 'typescript';
 
 const compile=file=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
-const {exerciseVariants,selectExerciseVariant,addExerciseVariant,groupExerciseVariants,ungroupExerciseVariant}=await import(compile('../src/exerciseVariants.ts'));
+const {exerciseVariants,selectExerciseVariant,addExerciseVariant,groupExerciseVariants,ungroupExerciseVariant,copyExerciseVariant,workoutExerciseBank,removeExerciseVariant}=await import(compile('../src/exerciseVariants.ts'));
 const {applyDraftReps}=await import(compile('../src/workoutDrafts.ts'));
 const base=()=>({id:'press',name:'Militaire haltères',sets:[{id:'s1',weight:22.5,reps:0,repsMin:8,repsMax:10},{id:'s2',weight:20,reps:12}],workoutUpdatedAt:'2026-10-01T12:00:00Z'});
 const count=exercises=>exercises.reduce((sum,ex)=>sum+ex.sets.length,0);
@@ -36,4 +36,42 @@ test('pending rep ranges are applied even after their variant becomes inactive',
   assert.equal(result.exercises[0].sets[0].reps,15);
   assert.equal(result.exercises[0].alternatives[0].sets[0].repsMin,6);
   assert.equal(result.exercises[0].alternatives[0].sets[0].repsMax,8);
+});
+
+test('cross-session alternatives copy loads with fresh IDs and never mutate or link the source',()=>{
+  const original=base();const source={id:'other-machine',name:'Machine',sets:[{id:'source-set',weight:52.5,reps:0,repsMin:8,repsMax:12}]};
+  const before=structuredClone(source);let index=0;
+  const result=copyExerciseVariant(original,source,()=>`copied-${++index}`);
+  assert.equal(count([result]),count([original]));assert.equal(result.name,original.name);
+  const copied=result.alternatives[0];assert.equal(copied.id,'copied-1');assert.equal(copied.sets[0].id,'copied-2');
+  assert.equal(copied.sets[0].weight,52.5);assert.equal(copied.sets[0].repsMin,8);assert.equal(copied.sets[0].repsMax,12);
+  copied.sets[0].weight=60;assert.deepEqual(source,before);assert.equal(original.alternatives,undefined);
+  const selected=selectExerciseVariant(result,copied.id);assert.equal(selected.sets[0].weight,60);
+  const back=selectExerciseVariant(selected,original.id);assert.deepEqual(back.sets,original.sets);
+});
+
+test('cross-session bank includes ordinary workouts but excludes all internal records and strength blocks',()=>{
+  const workout={id:'valid',name:'Upper',date:'2026-10-15',exercises:[base()]};
+  const reserved=['__nutrition_profile__','__nutrition_day__','__nutrition_meal__','__training_session__','__strength_tested_max__'];
+  const rows=[workout,...reserved.map((name,i)=>({...workout,id:`record-${i}`,name})),{...workout,id:'force',exercises:[{...base(),strengthBlock:{version:1}}]}];
+  assert.deepEqual(workoutExerciseBank(rows),[workout]);
+});
+
+test('removing an inactive alternative keeps the selected load, count and source intact',()=>{
+  const original=base();const exercise=copyExerciseVariant(original,{id:'machine',name:'Machine',sets:[{id:'m',weight:50,reps:10}]});
+  const before=structuredClone(exercise);const result=removeExerciseVariant(exercise,exercise.alternatives[0].id);
+  assert.deepEqual(exercise,before);assert.equal(exerciseVariants(result).length,1);
+  assert.deepEqual(result.sets,original.sets);assert.equal(count([result]),2);
+});
+
+test('removing the selected alternative switches to a remaining one without losing its weights',()=>{
+  const original=base();const exercise=addExerciseVariant(original,'Machine','machine');
+  const result=removeExerciseVariant(exercise,'machine');
+  assert.equal(result.name,original.name);assert.deepEqual(result.sets,original.sets);
+  assert.equal(result.id,original.id);assert.equal(exerciseVariants(result).length,1);
+  assert.equal(removeExerciseVariant(result,result.activeVariantId),result);
+  assert.equal(removeExerciseVariant(result,'not-found'),result);
+  const grouped=copyExerciseVariant(exercise,{id:'smith',name:'Smith',sets:[{id:'smith-s',weight:40,reps:8}]});
+  const resultWithTwo=removeExerciseVariant(grouped,'machine');assert.equal(exerciseVariants(resultWithTwo).length,2);
+  assert.equal(resultWithTwo.alternatives[0].sets[0].weight,40);
 });

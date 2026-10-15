@@ -5,12 +5,14 @@ import type { Workout, Exercise } from '../types';
 import { TemplateSelector } from './TemplateSelector';
 import { Icon } from './Icon';
 import { DecimalInput } from './DecimalInput';
-import { addExerciseVariant, groupExerciseVariants, selectExerciseVariant, ungroupExerciseVariant } from '../exerciseVariants';
+import { addExerciseVariant, copyExerciseVariant, exerciseVariants, groupExerciseVariants, removeExerciseVariant, selectExerciseVariant, ungroupExerciseVariant } from '../exerciseVariants';
 import { ExerciseVariantPicker } from './ExerciseVariantPicker';
+import { ExistingExercisePicker } from './ExistingExercisePicker';
 
 interface WorkoutFormProps {
   userId: string;
   workout: Workout | null;
+  workouts?: Workout[];
   onSave: (workout: Workout) => Promise<boolean>;
   onCancel: () => void;
 }
@@ -73,7 +75,7 @@ const EXERCISE_SUGGESTIONS = [
   'Mollet presse horizontal',
 ];
 
-export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormProps) {
+export function WorkoutForm({ userId, workout, workouts = [], onSave, onCancel }: WorkoutFormProps) {
   useLanguage();
   const [restored] = useState(() => readWorkoutDraft(userId, workout?.id));
   const [initial] = useState<Workout>(() => restored?.workout ?? workout ?? { id: crypto.randomUUID(), name: '', date: new Date().toLocaleDateString('en-CA'), exercises: [] });
@@ -86,6 +88,7 @@ export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormPr
   const savingRef = useRef(false);
   const [saveError, setSaveError] = useState(false);
   const [variantEditor, setVariantEditor] = useState<{ exerciseId: string; name: string }>();
+  const [associateId,setAssociateId] = useState<string>();
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const draftWritten = useRef(Boolean(restored));
   const [online, setOnline] = useState(navigator.onLine);
@@ -383,10 +386,14 @@ export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormPr
             <div className="exercise-variant-editor">
               <ExerciseVariantPicker exercise={exercise} onChange={id => setExercises(previous => applyDraftReps({ ...initial, exercises: previous }, repsInputValues).exercises.map(item => item.id === exercise.id ? selectExerciseVariant(item,id) : item))}/>
               <div className="exercise-variant-actions"><button type="button" className="btn btn-small btn-secondary" onClick={() => setVariantEditor({ exerciseId: exercise.id, name: '' })}>{t('+ Ajouter une alternative')}</button>
-                {exercises.length > 1 && <label className="exercise-variant-associate"><span className="sr-only">{t('Associer un exercice existant')} · {exercise.name}</span><select aria-label={`${t('Associer un exercice existant')} · ${exercise.name}`} value="" onChange={event => { const sourceId = event.target.value; if(sourceId) setExercises(previous => groupExerciseVariants(applyDraftReps({...initial,exercises:previous},repsInputValues).exercises,exercise.id,sourceId)); }}><option value="">{t('Associer un exercice existant…')}</option>{exercises.filter(item => item.id !== exercise.id).map(item => <option key={item.id} value={item.id}>{item.name || t('Sans nom')}</option>)}</select></label>}
+                <button type="button" className="btn btn-small btn-secondary" disabled={!exercise.name.trim()} onClick={()=>setAssociateId(exercise.id)}>{t('Associer un exercice existant')}</button>
               </div>
               {variantEditor?.exerciseId === exercise.id && <div className="exercise-variant-create"><label>{t('Nom de l’alternative')}<input autoFocus maxLength={150} value={variantEditor.name} placeholder={t('Ex. Développé militaire machine')} onChange={event => setVariantEditor({ exerciseId: exercise.id, name: event.target.value })} onKeyDown={event => {if(event.key === 'Enter') event.preventDefault();}}/></label><button type="button" className="btn btn-primary btn-small" disabled={!variantEditor.name.trim() || !exercise.name.trim()} onClick={() => { setExercises(previous => applyDraftReps({...initial,exercises:previous},repsInputValues).exercises.map(item => item.id === exercise.id ? addExerciseVariant(item,variantEditor.name) : item)); setVariantEditor(undefined); }}>{t('Créer l’alternative')}</button><button type="button" className="btn btn-small btn-secondary" onClick={() => setVariantEditor(undefined)}>{t('Annuler')}</button><small>{t('Même nombre de séries et répétitions au départ ; les charges de la nouvelle variante restent à renseigner.')}</small></div>}
-              {!!exercise.alternatives?.length && <details className="exercise-variant-manage"><summary>{t('Gérer les alternatives')}</summary>{exercise.alternatives.map(variant => <div key={variant.id}><span>{variant.name} · {variant.sets.length} {t('séries')}</span><button className="btn btn-small btn-secondary" type="button" onClick={() => setExercises(previous => ungroupExerciseVariant(applyDraftReps({...initial,exercises:previous},repsInputValues).exercises,exercise.id,variant.id))}>{t('Séparer en exercice')}</button></div>)}</details>}
+              {!!exercise.alternatives?.length && <details className="exercise-variant-manage"><summary>{t('Gérer les alternatives')}</summary>{exerciseVariants(exercise).map((variant,index) => <div key={variant.id}><span>{variant.name} · {variant.sets.length} {t('séries')}{index===0?` · ${t('Utilisée')}`:''}</span><div className="exercise-variant-manage-actions">{index>0 && <button className="btn btn-small btn-secondary" type="button" onClick={() => setExercises(previous => ungroupExerciseVariant(applyDraftReps({...initial,exercises:previous},repsInputValues).exercises,exercise.id,variant.id))}>{t('Séparer en exercice')}</button>}<button className="btn btn-small btn-danger" type="button" aria-label={`${t('Supprimer la variante')} · ${variant.name}`} onClick={()=>{
+                const variants=exerciseVariants(exercise);
+                const message=`${t('Supprimer cette variante et ses charges enregistrées dans cette séance ?')}\n${variant.name}${index===0?`\n${t('La variante suivante sera utilisée :')} ${variants[1].name}`:''}\n${t('La suppression sera appliquée en enregistrant la séance.')}`;
+                if(confirm(message))setExercises(previous=>applyDraftReps({...initial,exercises:previous},repsInputValues).exercises.map(item=>item.id===exercise.id?removeExerciseVariant(item,variant.id):item));
+              }}><Icon name="trash" size={15}/>{t('Supprimer')}</button></div></div>)}</details>}
             </div>
 
             <div className="sets-table">
@@ -466,6 +473,11 @@ export function WorkoutForm({ userId, workout, onSave, onCancel }: WorkoutFormPr
         ))}
       </div>
       </fieldset>
+      {associateId && <ExistingExercisePicker workouts={workouts} current={{...initial,name,date,exercises}} targetId={associateId} onClose={()=>setAssociateId(undefined)} onChoose={(source,sourceExercise,variant)=>{
+        const currentExercises=applyDraftReps({...initial,exercises},repsInputValues).exercises;
+        const next=source.id===initial.id?groupExerciseVariants(currentExercises,associateId,sourceExercise.id):currentExercises.map(exercise=>exercise.id===associateId?copyExerciseVariant(exercise,variant):exercise);
+        setExercises(next);setAssociateId(undefined);
+      }}/>}
     </form>
   );
 }

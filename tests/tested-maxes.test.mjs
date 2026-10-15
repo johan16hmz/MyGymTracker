@@ -34,10 +34,10 @@ test('tested maximum improves best lifts without creating planned or working set
   assert.equal(buildStatistics({workouts:[old],days:[]},'all',today).start,'2025-01-01');
 });
 
-let calls=[],written,error=null;
-globalThis.testedClient={from(table){calls.push(['from',table]);const q={upsert(payload,options){written=payload;calls.push(['upsert',options]);return q;},select(){return q;},delete(){calls.push(['delete']);return q;},eq(k,v){calls.push(['eq',k,v]);return q;},abortSignal(){return q;},single(){return Promise.resolve({data:error?null:written,error});},then(resolve,reject){return Promise.resolve({error}).then(resolve,reject);}};return q;}};
+let calls=[],written,error=null,loadRows=[];
+globalThis.testedClient={from(table){calls.push(['from',table]);let offset=0,end=499;const q={upsert(payload,options){written=payload;calls.push(['upsert',options]);return q;},select(){return q;},delete(){calls.push(['delete']);return q;},eq(k,v){calls.push(['eq',k,v]);return q;},order(){return q;},range(start,last){offset=start;end=last;calls.push(['range',start,last]);return q;},abortSignal(){return q;},single(){return Promise.resolve({data:error?null:written,error});},then(resolve,reject){return Promise.resolve({data:loadRows.slice(offset,end+1),error}).then(resolve,reject);}};return q;}};
 const service=compile(source('../src/testedMaxService.ts').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.testedClient;').replaceAll(/from '\.\/testedMaxes(?:\.js)?';/g,`from ${JSON.stringify(testedUrl)};`));
-const {saveTestedMax,removeTestedMax}=await import(service);
+const {saveTestedMax,removeTestedMax,loadTestedMaxes}=await import(service);
 test('tested max saves are owner-scoped, retry-stable and deletions marker-scoped',async()=>{
   calls=[];error=new Error('offline');await assert.rejects(saveTestedMax('owner-a',value()));
   const id=written.id;error=null;await saveTestedMax('owner-a',value());assert.equal(written.id,id);assert.equal(written.user_id,'owner-a');
@@ -45,4 +45,13 @@ test('tested max saves are owner-scoped, retry-stable and deletions marker-scope
   calls=[];await removeTestedMax('owner-a',id);
   for(const expected of [['eq','user_id','owner-a'],['eq','id',id],['eq','name','__strength_tested_max__']])assert.ok(calls.some(c=>JSON.stringify(c)===JSON.stringify(expected)));
   error=new Error('denied');await assert.rejects(removeTestedMax('owner-a',id));error=null;
+});
+
+test('Force loads existing 1RM history with owner and marker filters on every page',async()=>{
+  calls=[];loadRows=Array.from({length:501},(_,index)=>testedMaxRecord(value({id:`loaded-${index}`}),today));
+  const loaded=await loadTestedMaxes('owner-a');assert.equal(loaded.length,501);
+  assert.equal(calls.filter(c=>c[0]==='eq'&&c[1]==='user_id'&&c[2]==='owner-a').length,2);
+  assert.equal(calls.filter(c=>c[0]==='eq'&&c[1]==='name'&&c[2]==='__strength_tested_max__').length,2);
+  assert.deepEqual(calls.filter(c=>c[0]==='range'),[['range',0,499],['range',500,999]]);
+  error=new Error('offline');await assert.rejects(loadTestedMaxes('owner-a'));error=null;loadRows=[];
 });
