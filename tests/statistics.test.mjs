@@ -5,9 +5,9 @@ import ts from 'typescript';
 
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
-const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
-const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
-const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`).replaceAll("from './testedMaxes';",`from ${JSON.stringify(testedUrl)};`));
+const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`));
+const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`));
+const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`).replaceAll(/from '\.\/testedMaxes(?:\.js)?';/g,`from ${JSON.stringify(testedUrl)};`));
 const {buildStatistics,loadPoints,strengthLogs,weightPoints,profileWithWeightHistory,weekStart,validDate}=await import(statisticsUrl);
 const fixtureUrl=compile(readFileSync(new URL("./statistics-fixture.ts",import.meta.url),"utf8").replaceAll("from '../src/statistics';",`from ${JSON.stringify(statisticsUrl)};`).replaceAll("from '../src/nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from '../src/trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
 const {statisticsFixture}=await import(fixtureUrl);
@@ -60,7 +60,7 @@ test('volume is only actual external force load times repetitions, never body we
 
 let queries=[];let includeSavedMeal=false;
 globalThis.statsTestClient={from(table){const current={table};queries.push(current);const q={select(){return q;},eq(key,value){current[key]=value;return q;},order(key){current.order=key;return q;},range(start,end){current.range=[start,end];return q;},async abortSignal(){return {data:current.range[0]===0?Array.from({length:500},(_,i)=>({id:String(i),name:includeSavedMeal && i===0?'__nutrition_meal__':'test',date:today,exercises:[]})):[],error:null};}};return q;}};
-const service=readFileSync(new URL('../src/statisticsService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.statsTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`);
+const service=readFileSync(new URL('../src/statisticsService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.statsTestClient;').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`);
 const {loadStatistics}=await import(compile(service));
 test('statistics load paginates and applies the owner filter on every page',async()=>{
   queries=[];const loaded=await loadStatistics('owner-a');assert.equal(loaded.workouts.length,500);

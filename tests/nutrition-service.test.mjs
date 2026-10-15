@@ -6,9 +6,9 @@ import ts from 'typescript';
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
 const mealsUrl=compile(readFileSync(new URL('../src/nutritionMeals.ts',import.meta.url),'utf8'));
-const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
-const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
-const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`).replaceAll("from './testedMaxes';",`from ${JSON.stringify(testedUrl)};`));
+const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`));
+const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`));
+const statisticsUrl=compile(readFileSync(new URL("../src/statistics.ts",import.meta.url),"utf8").replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`).replaceAll(/from '\.\/testedMaxes(?:\.js)?';/g,`from ${JSON.stringify(testedUrl)};`));
 let calls=[];let record;let health={data:null,error:{code:'PGRST205'}};let written;let historyRecords=[];let page;let writeError=null;
 globalThis.nutritionTestClient={from(table){
   const query={
@@ -26,7 +26,7 @@ globalThis.nutritionTestClient={from(table){
   };
   return query;
 }};
-const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './nutritionMeals';",`from ${JSON.stringify(mealsUrl)};`).replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
+const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './nutritionMeals';",`from ${JSON.stringify(mealsUrl)};`).replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
 const {loadNutritionDay,saveNutritionDay,saveNutritionProfile,loadRecentFoods,loadSavedMeals,saveSavedMeal,isNutritionRecord}=await import(compile(source));
 const date='2026-10-07';
 

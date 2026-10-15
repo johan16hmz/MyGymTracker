@@ -5,9 +5,9 @@ import ts from 'typescript';
 
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.meta.url),'utf8'));
-const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
-const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
-const statsUrl=compile(readFileSync(new URL('../src/statistics.ts',import.meta.url),'utf8').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`).replaceAll("from './testedMaxes';",`from ${JSON.stringify(testedUrl)};`));
+const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`));
+const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`));
+const statsUrl=compile(readFileSync(new URL('../src/statistics.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`).replaceAll(/from '\.\/testedMaxes(?:\.js)?';/g,`from ${JSON.stringify(testedUrl)};`));
 const {trainingSessionRecord,trainingSessions,validateTrainingSession}=await import(trainingUrl);
 const {buildStatistics,estimatedOneRM,estimatedMaxPoints}=await import(statsUrl);
 const today='2026-10-13';
@@ -61,7 +61,7 @@ test('duplicate delivery of an event counts once, malformed or future records ar
 
 let calls=[];let payload;
 globalThis.trainingTestClient={from(table){calls.push(['from',table]);const query={upsert(value,options){payload=value;calls.push(['upsert',options]);return query;},select(){return query;},eq(key,value){calls.push(['eq',key,value]);return query;},delete(){calls.push(['delete']);return query;},abortSignal(){return query;},async single(){return {data:payload,error:null};},then(resolve){return Promise.resolve({error:null}).then(resolve);}};return query;}};
-const service=readFileSync(new URL('../src/trainingSessionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.trainingTestClient;').replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`);
+const service=readFileSync(new URL('../src/trainingSessionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.trainingTestClient;').replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`);
 const {saveTrainingSession,removeTrainingSession}=await import(compile(service));
 test('session saves retry with the same event ID and deletes are limited to owner and history records',async()=>{
   calls=[];const session=event('stable-id',today);

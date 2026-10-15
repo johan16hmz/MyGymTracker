@@ -5,9 +5,9 @@ import ts from 'typescript';
 const compile=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.ESNext}}).outputText).toString('base64')}`;
 const source=file=>readFileSync(new URL(file,import.meta.url),'utf8');
 const nutritionUrl=compile(source('../src/nutrition.ts'));
-const trainingUrl=compile(source('../src/trainingSessions.ts').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`));
-const testedUrl=compile(source('../src/testedMaxes.ts').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`));
-const statsUrl=compile(source('../src/statistics.ts').replaceAll("from './nutrition';",`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './trainingSessions';",`from ${JSON.stringify(trainingUrl)};`).replaceAll("from './testedMaxes';",`from ${JSON.stringify(testedUrl)};`));
+const trainingUrl=compile(source('../src/trainingSessions.ts').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`));
+const testedUrl=compile(source('../src/testedMaxes.ts').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`));
+const statsUrl=compile(source('../src/statistics.ts').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`).replaceAll(/from '\.\/testedMaxes(?:\.js)?';/g,`from ${JSON.stringify(testedUrl)};`));
 const {validateTestedMax,testedMaxRecord,testedMaxes,testedMaxPoints}=await import(testedUrl);
 const {buildStatistics}=await import(statsUrl);
 const today='2026-10-15';
@@ -36,7 +36,7 @@ test('tested maximum improves best lifts without creating planned or working set
 
 let calls=[],written,error=null;
 globalThis.testedClient={from(table){calls.push(['from',table]);const q={upsert(payload,options){written=payload;calls.push(['upsert',options]);return q;},select(){return q;},delete(){calls.push(['delete']);return q;},eq(k,v){calls.push(['eq',k,v]);return q;},abortSignal(){return q;},single(){return Promise.resolve({data:error?null:written,error});},then(resolve,reject){return Promise.resolve({error}).then(resolve,reject);}};return q;}};
-const service=compile(source('../src/testedMaxService.ts').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.testedClient;').replaceAll("from './testedMaxes';",`from ${JSON.stringify(testedUrl)};`));
+const service=compile(source('../src/testedMaxService.ts').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.testedClient;').replaceAll(/from '\.\/testedMaxes(?:\.js)?';/g,`from ${JSON.stringify(testedUrl)};`));
 const {saveTestedMax,removeTestedMax}=await import(service);
 test('tested max saves are owner-scoped, retry-stable and deletions marker-scoped',async()=>{
   calls=[];error=new Error('offline');await assert.rejects(saveTestedMax('owner-a',value()));

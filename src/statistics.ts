@@ -1,8 +1,8 @@
 import type { Workout } from './types';
 import type { NutritionDay, NutritionProfile } from './nutrition';
-import { localDate } from './nutrition';
-import { trainingSessions, validTrainingDate } from './trainingSessions';
-import { testedMaxes } from './testedMaxes';
+import { localDate } from './nutrition.js';
+import { trainingSessions, validTrainingDate } from './trainingSessions.js';
+import { testedMaxes } from './testedMaxes.js';
 
 export type StatsPeriod = '28' | '84' | '180' | 'all';
 export interface StrengthLog {

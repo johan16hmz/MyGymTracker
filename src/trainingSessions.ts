@@ -1,5 +1,5 @@
 import type { TrainingSession, Workout } from './types';
-import { localDate } from './nutrition';
+import { localDate } from './nutrition.js';
 
 export const TRAINING_SESSION_NAME = '__training_session__';
 

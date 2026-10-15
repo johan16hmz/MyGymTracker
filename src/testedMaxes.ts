@@ -1,6 +1,6 @@
 import type { Workout } from './types';
-import { localDate } from './nutrition';
-import { validTrainingDate } from './trainingSessions';
+import { localDate } from './nutrition.js';
+import { validTrainingDate } from './trainingSessions.js';
 
 export const TESTED_MAX_NAME = '__strength_tested_max__';
 export interface TestedMax {
