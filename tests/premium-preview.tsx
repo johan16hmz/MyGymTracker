@@ -11,9 +11,9 @@ import { TrainingSessionForm } from '../src/components/TrainingSessionForm';
 import { PremiumNutritionDemo } from './premium-nutrition-demo';
 import { statisticsFixture } from './statistics-fixture';
 import { localDate } from '../src/nutrition';
-import { buildStatistics } from '../src/statistics';
+import { buildStatistics, shiftDate } from '../src/statistics';
 import { testedMaxes, testedMaxRecord, isTestedMaxRecord } from '../src/testedMaxes';
-import { trainingSessions, trainingSessionRecord, isTrainingSessionRecord } from '../src/trainingSessions';
+import { trainingSessions, trainingSessionRecord, isTrainingSessionRecord, snapshotWorkout } from '../src/trainingSessions';
 import { createStrengthBlock } from '../src/strength';
 import type { Workout } from '../src/types';
 import '../src/ui.css';
@@ -25,9 +25,10 @@ const models=[model('upper-a','Upper A · Pectoraux & dos',['Développé couché
 models[2].exercises[0].alternatives=[{id:'military-machine',name:'Développé militaire machine',sets:[1,2,3,4].map(i=>({id:`military-alt-${i}`,weight:45,reps:8}))}];
 const block:Workout={id:'current-block',name:'Bloc force · Automne',date:today,exercises:[{id:'current-plan',name:'Force',sets:[],strengthBlock:{...createStrengthBlock({bench:100,squat:120,pullup:35,dips:40},80),currentRank:1}}]};
 const maxRecords=[{id:'tested-bench',exerciseId:'bench',exercise:'Bench',weight:100,date:'2026-09-15',weighted:false},{id:'tested-squat',exerciseId:'squat',exercise:'Squat',weight:120,date:'2026-09-20',weighted:false},{id:'tested-pullup',exerciseId:'pullup',exercise:'Tractions',weight:35,date:'2026-09-20',weighted:true}].map(value=>testedMaxRecord({version:1,...value,recordedAt:`${value.date}T12:00:00Z`,note:'Fin de bloc'}));
+const recentSessions=[trainingSessionRecord({version:1,id:'recent-workout',source:'workout',sourceId:models[0].id,name:models[0].name,date:shiftDate(today,-1),recordedAt:`${today}T10:00:00Z`,note:'Bonne énergie, banc habituel.',exercises:[],workoutSnapshot:snapshotWorkout(models[0])}),trainingSessionRecord({version:1,id:'recent-strength',source:'strength',sourceId:block.id,name:block.name,date:today,recordedAt:`${today}T11:00:00Z`,week:1,note:'Dernière série difficile mais propre.',exercises:[{id:'bench',name:'Bench',weighted:false,sets:[{weight:80,reps:5,rpe:7.5},{weight:80,reps:5,rpe:8},{weight:82.5,reps:3,rpe:8.5}]}]})];
 
 function Preview(){
-  const [source,setSource]=useState(()=>({...statisticsFixture(),workouts:[block,...models,...statisticsFixture().workouts,...maxRecords]}));
+  const [source,setSource]=useState(()=>({...statisticsFixture(),days:[...statisticsFixture().days,...[-6,-3,0].map((offset,i)=>({date:shiftDate(today,offset),entries:[],weightKg:80+i*.2}))],workouts:[block,...models,...statisticsFixture().workouts,...maxRecords,...recentSessions]}));
   const [view,setView]=useState<AppSection|'detail'|'edit'|'create'>('workouts');
   const [selected,setSelected]=useState<Workout | null>(null);
   const [entry,setEntry]=useState<{workout:Workout;week?:number;prescriptionId?:string}>();

@@ -10,11 +10,50 @@ async function load(source) {
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 }
 
-const { estimateCalories, goalDateInWeeks, goalDateInMonths, foodTotals, sumEntries, defaultPortions, stepEnergy, macroTargets } = await load('../src/nutrition.ts');
+const { estimateCalories, nutritionProgress, datedWeights, goalDateInWeeks, goalDateInMonths, foodTotals, sumEntries, defaultPortions, stepEnergy, macroTargets } = await load('../src/nutrition.ts');
 const { normalizeOpenFoodFacts, normalizeFoodSearch, filterFoodCatalog, foodBrandLabel, foodKindLabel, rankFoodSearch, searchBrandedFoods, lookupFood } = await load('../src/nutritionFood.ts');
 const { foodCodeFromScan, foodCameraErrorMessage, requestFoodCamera } = await load('../src/nutritionScan.ts');
 const { parseHealthImport } = await load('../src/nutritionHealth.ts');
 const { foodUpstreamUrl, GET } = await load('../api/food.ts');
+
+const progressProfile={goal:'gain',targetKg:84,age:25,heightCm:180,weightKg:80,activity:'active',equationSex:'male',goalDate:'2027-02-21'};
+test('nutrition progress uses the latest dated weight and the remaining deadline without mutating the goal',()=>{
+  const original=structuredClone(progressProfile);
+  const days=[{date:'2026-10-18',weightKg:80.5},{date:'2026-10-21',weightKg:82}];
+  const progress=nutritionProgress(progressProfile,days,'2026-10-21','2026-10-21');
+  assert.equal(progress.profile.weightKg,82);assert.equal(progress.measurement.date,'2026-10-21');
+  assert.deepEqual(progress.estimate,estimateCalories({...progressProfile,weightKg:82},'2026-10-21'));
+  assert.notEqual(progress.base,estimateCalories(progressProfile,'2026-10-21').target);
+  assert.deepEqual(progressProfile,original);assert.equal(days[1].weightKg,82);
+  const later=nutritionProgress(progressProfile,days,'2027-01-21','2027-01-21');
+  assert.ok(later.estimate.timeline.requestedWeeklyKg>progress.estimate.timeline.requestedWeeklyKg);
+  assert.ok(later.estimate.adjustment<=Math.min(500,later.estimate.maintenance*.1)+10);
+});
+test('nutrition progress handles loss, reaching or crossing a target, maintenance and expired deadlines',()=>{
+  const loss={...progressProfile,goal:'lose',targetKg:75};
+  const result=nutritionProgress(loss,[{date:'2026-10-21',weightKg:78}],'2026-10-21','2026-10-21');
+  assert.deepEqual(result.estimate,estimateCalories({...loss,weightKg:78},'2026-10-21'));
+  for(const [profile,weightKg] of [[progressProfile,84],[progressProfile,85],[loss,75],[loss,74],[{...progressProfile,goal:'maintain',targetKg:80},81]]){
+    const progress=nutritionProgress(profile,[{date:'2026-10-21',weightKg}],'2026-10-21','2026-10-21');
+    assert.equal(progress.base,progress.estimate.maintenance);assert.equal(progress.estimate.adjustment,0);
+  }
+  const expired=nutritionProgress({...progressProfile,goalDate:'2026-10-20'},[],'2026-10-21','2026-10-21');
+  assert.equal(expired.base,expired.estimate.maintenance);assert.equal(expired.estimate.timeline.expired,true);
+});
+test('manual targets retain priority; past diaries never use future measurements or future deadlines for the calculation date',()=>{
+  const profile={...progressProfile,calorieOverride:2500,weightHistory:[{date:'2026-10-18',weightKg:81}]};
+  const days=[{date:'2026-10-20',weightKg:82},{date:'2026-10-22',weightKg:83}];
+  const past=nutritionProgress(profile,days,'2026-10-19','2026-10-21');
+  assert.equal(past.profile.weightKg,81);assert.equal(past.base,2500);assert.equal(past.asOf,'2026-10-19');
+  const future=nutritionProgress(profile,days,'2026-10-23','2026-10-21');
+  assert.equal(future.profile.weightKg,82);assert.equal(future.asOf,'2026-10-21');
+  assert.equal(nutritionProgress(progressProfile,[],'2026-10-21','2026-10-21').profile.weightKg,80);
+});
+test('dated weights share profile and diary precedence, reject impossible dates, invalid weights and future days',()=>{
+  const profile={...progressProfile,weightHistory:[{date:'2026-10-20',weightKg:80},{date:'2026-10-19',weightKg:79}]};
+  const points=datedWeights(profile,[{date:'2026-10-20',weightKg:81},{date:'2026-10-21',weightKg:NaN},{date:'2026-02-30',weightKg:82},{date:'2026-10-22',weightKg:83},{date:'2026-10-18',weightKg:10}],'2026-10-21');
+  assert.deepEqual(points,[{date:'2026-10-19',weightKg:79},{date:'2026-10-20',weightKg:81}]);
+});
 
 test('macro targets are automatic and vary with goal, weight and training',()=>{
   const profile={goal:'maintain',weightKg:80,targetKg:80,age:25,heightCm:180,activity:'active',equationSex:'male'};

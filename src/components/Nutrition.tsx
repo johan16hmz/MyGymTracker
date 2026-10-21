@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { locale, t, useLanguage, useWeightUnit } from '../i18n';
-import { estimateCalories, goalDateInMonths, localDate, macroTargets, trainingActivity } from '../nutrition';
-import type { DailyActivity, TrainingKind, EquationSex, FoodEntry, Meal, NutritionDay, NutritionGoal, NutritionProfile, SavedMeal } from '../nutrition';
-import { loadNutritionDay, loadNutritionProfile, loadRecentFoods, loadSavedMeals, saveSavedMeal, saveNutritionDay, saveNutritionProfile } from '../nutritionService';
+import { datedWeights, estimateCalories, goalDateInMonths, localDate, macroTargets, trainingActivity } from '../nutrition';
+import type { DatedWeight, DailyActivity, TrainingKind, EquationSex, FoodEntry, Meal, NutritionDay, NutritionGoal, NutritionProfile, SavedMeal } from '../nutrition';
+import { loadNutritionDay, loadNutritionProfile, loadNutritionHistory, loadSavedMeals, saveSavedMeal, saveNutritionDay, saveNutritionProfile } from '../nutritionService';
 import type { Workout } from '../types';
 import { DecimalInput } from './DecimalInput';
 import { FoodComposer } from './NutritionFoodComposer';
@@ -132,6 +132,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   const [date,setDate]=useState(localDate());
   const [day,setDay]=useState<NutritionDay>({date:localDate(),entries:[]});
   const [recent,setRecent]=useState<FoodHistoryEntry[]>([]);
+  const [weightHistory,setWeightHistory]=useState<DatedWeight[]>([]);
   const [historyOpen,setHistoryOpen]=useState(false);
   const [savedMeals,setSavedMeals]=useState<SavedMeal[]>([]);
   const [savedMealsLoading,setSavedMealsLoading]=useState(true);
@@ -163,10 +164,10 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
     return()=>{active=false;};
   },[userId,profileReload]);
   useEffect(()=>{
-    let active=true;setRecent([]);setHistoryLoading(true);setHistoryError('');
-    void loadRecentFoods(userId).then(value=>{if(active)setRecent(value);}).catch(error=>{if(active)setHistoryError(error.message);}).finally(()=>{if(active)setHistoryLoading(false);});
+    let active=true;setRecent([]);setWeightHistory([]);setHistoryLoading(true);setHistoryError('');
+    void loadNutritionHistory(userId).then(value=>{if(active){setRecent(value.entries);setWeightHistory(value.weights);}}).catch(error=>{if(active)setHistoryError(error.message);}).finally(()=>{if(active)setHistoryLoading(false);});
     return()=>{active=false;};
-  },[userId,historyReload]);
+  },[userId,historyReload,reload]);
   useEffect(()=>{
     let active=true;setSavedMeals([]);setSavedMealsLoading(true);setSavedMealsError('');
     void loadSavedMeals(userId).then(value=>{if(active)setSavedMeals(value);}).catch(error=>{if(active)setSavedMealsError(error.message);}).finally(()=>{if(active)setSavedMealsLoading(false);});
@@ -202,7 +203,7 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
       if(scope.current!==owner)throw new Error(t('La journée a changé. Réessaie.'));
       const next=change(latest.day);await saveNutritionDay(userId,next,latest.record);
       if(scope.current!==owner)throw new Error(t('La journée a changé. Réessaie.'));
-      if(scope.current===owner){setDay(next);setRecent(previous=>mergeFoodHistory(previous,next.date,next.entries));}
+      if(scope.current===owner){setDay(next);setRecent(previous=>mergeFoodHistory(previous,next.date,next.entries));setWeightHistory(previous=>[...previous.filter(item=>item.date!==next.date),...(next.weightKg===undefined?[]:[{date:next.date,weightKg:next.weightKg}])]);}
     }finally{busy.current=false;setSaving(false);}
   };
   const persistSavedMeal=async(next:SavedMeal)=>{
@@ -221,9 +222,11 @@ export function Nutrition({ userId, focusWeight = false }: { userId: string; foc
   };
   if(loadingProfile)return <div className="loading-panel" role="status"><span className="loading-spinner"/>{t('Chargement de ton journal nutrition…')}</div>;
   if(profileError)return <div className="nutrition-error" role="alert">{profileError}<button className="btn btn-secondary" onClick={()=>setProfileReload(value=>value+1)}>{t('Réessayer')}</button></div>;
-  if(!profile || editingProfile)return <section className="nutrition-page"><PageHeading eyebrow="Nutrition" title="Mon profil nutrition" description="Tes repères, adaptés à ton quotidien."/><ProfileForm initial={profile} saving={saving} onSave={persistProfile} onCancel={profile?()=>setEditingProfile(false):undefined}/></section>;
+  const currentWeight=datedWeights(profile,weightHistory).at(-1)?.weightKg ?? profile?.weightKg;
+  const currentProfile=profile && currentWeight!==undefined?{...profile,weightKg:currentWeight,...(profile.goal==='maintain'?{targetKg:currentWeight}:{})}:profile;
+  if(!profile || editingProfile)return <section className="nutrition-page"><PageHeading eyebrow="Nutrition" title="Mon profil nutrition" description="Tes repères, adaptés à ton quotidien."/><ProfileForm initial={currentProfile} saving={saving} onSave={persistProfile} onCancel={profile?()=>setEditingProfile(false):undefined}/></section>;
   return <>
-    <NutritionDiary profile={profile} day={day} date={date} busy={saving} loading={loadingDay} error={dayError} focusWeight={openWeight}
+    <NutritionDiary profile={profile} day={day} date={date} busy={saving} loading={loadingDay || historyLoading} error={dayError} focusWeight={openWeight} weightHistory={weightHistory} weightHistoryError={!!historyError}
       onHistory={()=>setHistoryOpen(true)}
       onSavedMeals={meal=>openSavedMeals(meal)} onSaveMeal={meal=>openSavedMeals(meal,true)}
       onDate={next=>{if(!busy.current){setOpenWeight(false);setDate(next);}}} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})}

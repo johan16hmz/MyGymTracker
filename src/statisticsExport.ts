@@ -63,6 +63,9 @@ export async function createStatisticsWorkbook(stats: Statistics, unit: WeightUn
   summary.addRow([tr('Dernier poids connu (hors filtre de période)','Latest known weight (outside period filter)'),stats.latestWeight===undefined?null:weight(stats.latestWeight),unit]);
   summary.addRow([tr('Pesées datées dans la période','Dated measurements in period'),stats.weights.length,tr('mesures','measurements')]);
   summary.addRow([tr('Tests 1RM réussis','Successful 1RM tests'),stats.maxTests.length,tr('tests','tests')]);
+  const averageRow=summary.addRow([tr('Poids moyen des 7 derniers jours','Average weight over the last 7 days'),stats.weightAverage7Days.meanKg===undefined?null:weight(stats.weightAverage7Days.meanKg),unit]);
+  summary.addRow([tr('Pesées utilisées dans la moyenne 7 jours','Measurements used in 7-day average'),stats.weightAverage7Days.count,tr('mesures','measurements')]);
+  summary.addRow([tr('Fenêtre de la moyenne 7 jours','7-day average window'),`${stats.weightAverage7Days.start} — ${stats.weightAverage7Days.end}`,tr('jours sans pesée ignorés','days without measurements ignored')]);
   for (const sheet of book.worksheets) {
     if (sheet.rowCount > 5) sheet.autoFilter = { from: {row:5,column:1}, to: {row:sheet.rowCount,column:sheet.columnCount} };
     for (let index=6;index<=sheet.rowCount;index++) {
@@ -81,6 +84,7 @@ export async function createStatisticsWorkbook(stats: Statistics, unit: WeightUn
   for(let index=6;index<=weeks.rowCount;index++)weeks.getCell(`D${index}`).numFmt='#,##0.00';
   for(let index=6;index<=tests.rowCount;index++)tests.getCell(`C${index}`).numFmt='#,##0.00';
   summary.getCell('B8').numFmt='#,##0.00';summary.getCell('B11').numFmt='0.0';
+  averageRow.getCell(2).numFmt='0.00';
   summary.views=[{showGridLines:false}];
   // Long context sits above the tables; give it room without merging data cells.
   for (const sheet of book.worksheets) { sheet.getRow(2).height=22;sheet.getRow(3).height=30; }

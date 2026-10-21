@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { TrainingSession, Workout } from '../types';
 import { getStrengthWeeks, DEFAULT_STRENGTH_SETS } from '../strength';
 import { localDate } from '../nutrition';
-import { validateTrainingSession } from '../trainingSessions';
+import { snapshotWorkout, validateTrainingSession } from '../trainingSessions';
 import { t, useLanguage, useWeightUnit } from '../i18n';
 import { convertWeightInput, parseDecimalInput, toDisplayWeight, toStoredWeight } from '../weightUnits';
 import { DecimalInput } from './DecimalInput';
@@ -47,7 +47,7 @@ export function TrainingSessionForm({workout, initialWeek=1, initialPrescription
     <form className="training-form" onSubmit={event=>{
       event.preventDefault();if(busy.current)return;
       const session:TrainingSession={version:1,id,source:block?'strength':'workout',sourceId:workout.id,name:workout.name,date,recordedAt:new Date().toISOString(),note,
-        ...(block?{week}:{}),
+        ...(block?{week}:{workoutSnapshot:snapshotWorkout(workout)}),
         ...(weighted && bodyWeight.trim()?{bodyWeightKg:toStoredWeight(parseDecimalInput(bodyWeight),unit)}:{}),
         exercises:(block?.exercises ?? []).flatMap(ex=>{
           const sets=ex.prescriptions.filter(row=>row.week===week && rows[row.id]?.selected).flatMap(row=>rows[row.id].sets.filter(set=>set.done).map(set=>({weight:toStoredWeight(parseDecimalInput(set.weight),unit),reps:Number(set.reps),prescriptionId:row.id,...(set.rpe.trim()?{rpe:parseDecimalInput(set.rpe)}:{})})));

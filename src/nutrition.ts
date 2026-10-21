@@ -96,6 +96,32 @@ export function goalDateInWeeks(weeks: number, today = localDate()) {
   return new Date((calendarDay(today) + weeks * 7) * 86400000).toISOString().slice(0, 10);
 }
 
+export interface DatedWeight { date: string; weightKg: number }
+
+// One measurement per calendar day. A diary measurement takes precedence over
+// a profile measurement on the same day; never use future or invalid entries.
+export function datedWeights(profile: NutritionProfile | undefined, days: Pick<NutritionDay, 'date' | 'weightKg'>[], through = localDate()): DatedWeight[] {
+  const points = new Map<string, DatedWeight>();
+  for (const item of [...(profile?.weightHistory ?? []), ...days]) {
+    if (!Number.isFinite(item.weightKg) || item.weightKg! < 25 || item.weightKg! > 400 || item.date > through) continue;
+    try { calendarDay(item.date); } catch { continue; }
+    points.set(item.date, { date: item.date, weightKg: item.weightKg! });
+  }
+  return [...points.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function nutritionProgress(profile: NutritionProfile, days: Pick<NutritionDay, 'date' | 'weightKg'>[], date = localDate(), today = localDate()) {
+  // Past diaries use measurements available on that date, not today's weight.
+  const asOf = date > today ? today : date;
+  const measurement = datedWeights(profile, days, asOf).at(-1);
+  const current = { ...profile, weightKg: measurement?.weightKg ?? profile.weightKg };
+  const reached = (profile.goal === 'gain' && current.weightKg >= profile.targetKg) || (profile.goal === 'lose' && current.weightKg <= profile.targetKg);
+  // Reaching/crossing the target must not invert the goal or crash validation.
+  const calculation = reached || profile.goal === 'maintain' ? { ...current, goal: 'maintain' as const, targetKg: current.weightKg } : current;
+  const estimate = estimateCalories(calculation, asOf);
+  return { profile: current, measurement, reached, asOf, estimate, base: profile.calorieOverride ?? estimate.target };
+}
+
 export function goalDateInMonths(months: number, today = localDate()) {
   if (!Number.isInteger(months) || months < 1 || months > 36) throw new Error('Choisis une durée entre 1 et 36 mois.');
   const start = new Date(calendarDay(today) * 86400000);

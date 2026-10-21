@@ -1,6 +1,6 @@
 import type { Workout } from './types';
 import type { NutritionDay, NutritionProfile } from './nutrition';
-import { localDate } from './nutrition.js';
+import { localDate, datedWeights } from './nutrition.js';
 import { trainingSessions, validTrainingDate } from './trainingSessions.js';
 import { testedMaxes } from './testedMaxes.js';
 
@@ -45,11 +45,7 @@ export function strengthLogs(workouts: Workout[], today = localDate()): Strength
   return logs.sort((a, b) => a.date.localeCompare(b.date));
 }
 export function weightPoints(profile: NutritionProfile | undefined, days: NutritionDay[], today = localDate()): WeightPoint[] {
-  const points = new Map<string, WeightPoint>();
-  for (const item of [...(profile?.weightHistory ?? []), ...days.map(day => ({ date: day.date, weightKg: day.weightKg }))]) {
-    if (validDate(item.date) && item.date <= today && Number.isFinite(item.weightKg) && item.weightKg! >= 25 && item.weightKg! <= 400) points.set(item.date, { date: item.date, weightKg: item.weightKg! });
-  }
-  return [...points.values()].sort((a, b) => a.date.localeCompare(b.date));
+  return datedWeights(profile, days, today);
 }
 export function loadPoints(logs: StrengthLog[], exerciseId: string, reps: number | 'all') {
   const byDay = new Map<string, StrengthLog>();
@@ -79,6 +75,9 @@ export function estimatedMaxPoints(logs: StrengthLog[], exerciseId: string) {
 }
 export function buildStatistics(source: StatsSource, period: StatsPeriod, today = localDate()) {
   const allWeights = weightPoints(source.profile, source.days, today);
+  const averageStart = shiftDate(today, -6);
+  const recentWeights = allWeights.filter(point => point.date >= averageStart);
+  const weightAverage7Days = { start: averageStart, end: today, count: recentWeights.length, meanKg: recentWeights.length ? recentWeights.reduce((sum, point) => sum + point.weightKg, 0) / recentWeights.length : undefined };
   const datedWeights=new Map(allWeights.map(point=>[point.date,point.weightKg]));
   const allLogs = strengthLogs(source.workouts, today).map(log=>({...log,bodyWeightKg:log.bodyWeightKg ?? datedWeights.get(log.date)}));
   const allSessions = trainingSessions(source.workouts,today);
@@ -111,7 +110,7 @@ export function buildStatistics(source: StatsSource, period: StatsPeriod, today 
     const best = candidates.sort((a, b) => b.weight - a.weight || b.reps - a.reps || Number(Boolean(b.tested)) - Number(Boolean(a.tested)) || b.date.localeCompare(a.date))[0];
     return { ...exercise, best, testedBest, sets: exerciseLogs.length, volume: exerciseLogs.reduce((sum, log) => sum + log.weight * log.reps, 0) };
   });
-  return { start, today, logs, maxTests, weights, sessions, trainingDates, weeks, exercises, records, activeWeeks: weeks.filter(week => week.days > 0).length, latestWeight: allWeights.at(-1)?.weightKg ?? source.profile?.weightKg, volume: logs.reduce((sum, log) => sum + log.weight * log.reps, 0) };
+  return { start, today, logs, maxTests, weights, weightAverage7Days, sessions, trainingDates, weeks, exercises, records, activeWeeks: weeks.filter(week => week.days > 0).length, latestWeight: allWeights.at(-1)?.weightKg ?? source.profile?.weightKg, volume: logs.reduce((sum, log) => sum + log.weight * log.reps, 0) };
 }
 
 export function profileWithWeightHistory(profile: NutritionProfile, previous?: NutritionProfile, date = localDate()): NutritionProfile {

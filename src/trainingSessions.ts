@@ -3,6 +3,10 @@ import { localDate } from './nutrition.js';
 
 export const TRAINING_SESSION_NAME = '__training_session__';
 
+export function snapshotWorkout(workout: Workout): NonNullable<TrainingSession['workoutSnapshot']> {
+  return workout.exercises.filter(ex => !ex.strengthBlock && !ex.trainingSession && !ex.nutritionProfile && !ex.nutritionDay && !ex.nutritionMeal && !ex.testedMax).map(ex => ({ id: ex.id, name: ex.name, sets: structuredClone(ex.sets) }));
+}
+
 export function validTrainingDate(date: string): boolean {
   return typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(`${date}T12:00:00Z`).toISOString().slice(0,10) === date;
 }
@@ -14,6 +18,7 @@ export function isTrainingSessionRecord(workout: Workout): boolean {
 export function validateTrainingSession(session: TrainingSession, today = localDate()): void {
   if (session.version !== 1 || !session.id || !session.sourceId || !session.name.trim() || !validTrainingDate(session.date) || session.date > today || !['workout','strength'].includes(session.source)) throw new Error('Vérifie la date et les informations de l’entraînement.');
   if (session.source === 'workout' && session.exercises.length) throw new Error('Les charges des modèles de séances ne sont pas des performances Force.');
+  if (session.workoutSnapshot !== undefined && (!Array.isArray(session.workoutSnapshot) || session.workoutSnapshot.some(ex => !ex.id || typeof ex.name !== 'string' || !Array.isArray(ex.sets) || ex.sets.some(set => !Number.isFinite(set.weight) || set.weight < 0 || !Number.isFinite(set.reps) || set.reps < 0 || (set.repsMin !== undefined && !Number.isFinite(set.repsMin)) || (set.repsMax !== undefined && !Number.isFinite(set.repsMax)))))) throw new Error('Contenu de séance invalide.');
   if (session.source === 'strength') {
     if (!session.exercises.length || session.exercises.some(ex => !ex.id || !ex.name || !ex.sets.length)) throw new Error('Sélectionne au moins une série réalisée.');
     for (const exercise of session.exercises) for (const set of exercise.sets) {

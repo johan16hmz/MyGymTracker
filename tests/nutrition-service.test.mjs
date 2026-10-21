@@ -27,7 +27,7 @@ globalThis.nutritionTestClient={from(table){
   return query;
 }};
 const source=readFileSync(new URL('../src/nutritionService.ts',import.meta.url),'utf8').replace("import { supabase } from './supabaseClient';",'const supabase=globalThis.nutritionTestClient;').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll("from './nutritionMeals';",`from ${JSON.stringify(mealsUrl)};`).replaceAll("from './statistics';",`from ${JSON.stringify(statisticsUrl)};`);
-const {loadNutritionDay,saveNutritionDay,saveNutritionProfile,loadRecentFoods,loadSavedMeals,saveSavedMeal,isNutritionRecord}=await import(compile(source));
+const {loadNutritionDay,saveNutritionDay,saveNutritionProfile,loadRecentFoods,loadNutritionHistory,loadSavedMeals,saveSavedMeal,isNutritionRecord}=await import(compile(source));
 const date='2026-10-07';
 
 test('nutrition remains usable before the optional Health migration, with owner and date filters',async()=>{
@@ -86,6 +86,14 @@ test('nutrition saves refined activity inputs alongside the owner profile and we
   for(const key of ['goalDate','dailyActivity','sessionsPerWeek','sessionMinutes','trainingKind','equationSex'])assert.equal(saved[key],profile[key]);
   assert.equal(saved.weightHistory[0].weightKg,79);
   assert.ok(calls.some(call=>call.column==='user_id' && call.value==='owner-a'));
+});
+
+test('nutrition history loads dated weights even on food-free days, owner-filtered on every page',async()=>{
+  calls=[];historyRecords=Array.from({length:501},(_,i)=>({id:`day-${i}`,date:i===500?'2026-10-20':'2026-10-19',exercises:[{nutritionDay:{entries:[],weightKg:i===500?81.2:80}}]}));
+  const result=await loadNutritionHistory('owner-b');
+  assert.equal(result.entries.length,0);assert.equal(result.weights.length,501);assert.deepEqual(result.weights[500],{date:'2026-10-20',weightKg:81.2});
+  assert.equal(calls.filter(call=>call.column==='user_id' && call.value==='owner-b').length,2);
+  assert.equal(calls.filter(call=>call.column==='name' && call.value==='__nutrition_day__').length,2);
 });
 
 const savedMeal={id:'9fcd5aa2-2eae-40a5-b91c-f039ee520365',name:'Déjeuner',meal:'lunch',updatedAt:'2026-10-15T08:00:00Z',items:[{quantity:100,food:{name:'Riz',source:'manual',unit:'g',kcal100:130,protein100:3,carbs100:28,fat100:.5}}]};

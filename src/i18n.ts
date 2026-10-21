@@ -4,6 +4,7 @@ import { statisticsEnglish } from './statisticsEnglish';
 import { trainingEnglish } from './trainingEnglish';
 import { performanceEnglish } from './performanceEnglish';
 import { premiumEnglish } from './premiumEnglish';
+import { progressEnglish } from './progressEnglish';
 export type Language = 'fr' | 'en';
 export type WeightUnit = 'kg' | 'lb';
 const listeners = new Set<() => void>();
@@ -33,6 +34,7 @@ export const english: Record<string, string> = {
   ...trainingEnglish,
   ...performanceEnglish,
   ...premiumEnglish,
+  ...progressEnglish,
   'Mot de passe oublié ?': 'Forgot password?',
   'Retrouve ton accès.': 'Get back on track.',
   'Renseigne ton email. On t’enverra un lien pour réinitialiser ton mot de passe.': 'Enter your email. We’ll send you a link to reset your password.',

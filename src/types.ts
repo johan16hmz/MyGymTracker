@@ -43,6 +43,8 @@ export interface TrainingSession {
   note: string;
   bodyWeightKg?: number;
   week?: number;
+  // Model content at validation time, not a record of actual Force sets.
+  workoutSnapshot?: { id: string; name: string; sets: Set[] }[];
   exercises: {
     id: string;
     name: string;

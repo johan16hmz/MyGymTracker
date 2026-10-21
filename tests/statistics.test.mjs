@@ -13,6 +13,24 @@ const fixtureUrl=compile(readFileSync(new URL("./statistics-fixture.ts",import.m
 const {statisticsFixture}=await import(fixtureUrl);
 const today='2026-10-09';
 
+test('7-day weight average uses available calendar days, not seven entries or missing-day zeroes',()=>{
+  const source={workouts:[],profile:{weightKg:200,weightHistory:[{date:'2026-10-15',weightKg:99},{date:'2026-10-19',weightKg:81}]},days:[{date:'2026-10-14',weightKg:100},{date:'2026-10-15',weightKg:80},{date:'2026-10-21',weightKg:82},{date:'2026-10-22',weightKg:300},{date:'2026-10-20',weightKg:NaN}].map(day=>({...day,entries:[]}))};
+  for(const period of ['28','84','all']){
+    const stats=buildStatistics(source,period,'2026-10-21');
+    assert.deepEqual(stats.weightAverage7Days,{start:'2026-10-15',end:'2026-10-21',count:3,meanKg:81});
+  }
+});
+test('7-day average supports a single entry, no entries, year boundaries and daylight-saving dates',()=>{
+  const build=(days,today)=>buildStatistics({workouts:[],profile:{weightKg:90},days:days.map(day=>({...day,entries:[]}))},'all',today).weightAverage7Days;
+  assert.deepEqual(build([{date:'2026-10-20',weightKg:81.7}],'2026-10-21'),{start:'2026-10-15',end:'2026-10-21',count:1,meanKg:81.7});
+  assert.equal(build([{date:'2026-10-14',weightKg:81.7}],'2026-10-21').meanKg,undefined);
+  assert.equal(build([],'2026-10-21').count,0);
+  const year=build([{date:'2025-12-29',weightKg:80},{date:'2026-01-04',weightKg:82}],'2026-01-04');
+  assert.equal(year.start,'2025-12-29');assert.equal(year.meanKg,81);
+  const dst=build([{date:'2026-10-24',weightKg:80},{date:'2026-10-25',weightKg:82}],'2026-10-27');
+  assert.equal(dst.start,'2026-10-21');assert.equal(dst.meanKg,81);
+});
+
 test('strength statistics use actual sets, never planned loads or future performances',()=>{
   const source=statisticsFixture(today);const row=source.workouts[0].exercises[0].strengthBlock.exercises[0].prescriptions[0];
   row.weight=999;row.performances.push({weight:777,reps:3,date:'2026-11-09'},{weight:666,reps:0,date:today},{weight:NaN,reps:3,date:today},{weight:666,reps:3,date:'2026-02-30'},{weight:666,reps:3,date:null});

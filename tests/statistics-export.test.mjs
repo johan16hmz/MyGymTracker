@@ -53,6 +53,16 @@ test('empty Excel export is valid and missing body weight is not zero',async()=>
   assert.equal(reopened.getWorksheet('Force').rowCount,5);
 });
 
+test('Excel includes the 7-day mean, available measurement count and explicit calendar window in selected units',async()=>{
+  const source={workouts:[],days:[{date:'2026-10-15',weightKg:80,entries:[]},{date:'2026-10-21',weightKg:82,entries:[]}]};
+  const stats=buildStatistics(source,'28','2026-10-21');
+  const book=await createStatisticsWorkbook(stats,'lb','en-GB');
+  const sheet=book.getWorksheet('Synthèse');
+  assert.equal(sheet.getCell('B14').value,81*2.2046226218);assert.equal(sheet.getCell('B14').numFmt,'0.00');
+  assert.equal(sheet.getCell('B15').value,2);assert.equal(sheet.getCell('B16').value,'2026-10-15 — 2026-10-21');
+  assert.equal(stats.weightAverage7Days.meanKg,81);
+});
+
 test('tested 1RM export stays numeric and separate from estimated working sets',async()=>{
   const {testedMaxRecord}=await import(testedUrl);
   const value={version:1,id:'test',exerciseId:'bench',exercise:'Bench',weighted:false,weight:110,date:'2026-10-09',recordedAt:'2026-10-09T12:00:00Z',note:'=1+1'};

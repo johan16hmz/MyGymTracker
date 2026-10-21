@@ -9,7 +9,7 @@ import { NutritionSavedMeals } from '../src/components/NutritionSavedMeals';
 import type { SavedMealDraft } from '../src/components/NutritionSavedMeals';
 import { NutritionScanner } from '../src/components/NutritionScanner';
 import { appendMealEntries } from '../src/nutritionMeals';
-import { goalDateInMonths, localDate } from '../src/nutrition';
+import { datedWeights, goalDateInMonths, localDate } from '../src/nutrition';
 import { mergeFoodHistory } from '../src/nutritionHistory';
 import type { FoodHistoryEntry } from '../src/nutritionHistory';
 import type { FoodEntry, Meal, NutritionDay, NutritionProfile, SavedMeal } from '../src/nutrition';
@@ -30,8 +30,10 @@ export function PremiumNutritionDemo({focusWeight=false}:{focusWeight?:boolean})
   const [editingProfile,setEditingProfile]=useState(false);
   const saveDay=(next:NutritionDay)=>{setDay(next);setRecent(previous=>mergeFoodHistory(previous,next.date,next.entries));};
   const openSaved=(meal:Meal,save=false)=>setSavedDialog({meal,...(save?{initial:{meal,items:day.entries.filter(entry=>entry.meal===meal).map(({food,quantity})=>({food,quantity}))}}:{})});
+  const latestWeight=datedWeights(currentProfile,[...Object.values(days),day]).at(-1)?.weightKg ?? currentProfile.weightKg;
+  const profileForEdit={...currentProfile,weightKg:latestWeight,...(currentProfile.goal==='maintain'?{targetKg:latestWeight}:{})};
   return <>
-    {editingProfile ? <section className="nutrition-page"><PageHeading eyebrow="Nutrition" title="Mon profil nutrition" description="Tes repères, adaptés à ton quotidien."/><ProfileForm initial={currentProfile} saving={false} onCancel={()=>setEditingProfile(false)} onSave={async next=>{setCurrentProfile(next);setEditingProfile(false);}}/></section> : <NutritionDiary profile={currentProfile} day={day} date={day.date} busy={false} loading={false} error="" focusWeight={focusWeight}
+    {editingProfile ? <section className="nutrition-page"><PageHeading eyebrow="Nutrition" title="Mon profil nutrition" description="Tes repères, adaptés à ton quotidien."/><ProfileForm initial={profileForEdit} saving={false} onCancel={()=>setEditingProfile(false)} onSave={async next=>{setCurrentProfile(next);setEditingProfile(false);}}/></section> : <NutritionDiary profile={currentProfile} day={day} date={day.date} busy={false} loading={false} error="" focusWeight={focusWeight} weightHistory={Object.values(days).filter((item):item is NutritionDay & {weightKg:number}=>item.weightKg!==undefined)}
       onDate={date=>{setDays(previous=>({...previous,[day.date]:day}));setDay(days[date] ?? {date,entries:[]});}}
       onHistory={()=>setHistoryOpen(true)} onProfile={()=>setEditingProfile(true)} onAdd={meal=>setComposer({meal})} onEdit={entry=>setComposer({meal:entry.meal,entry})}
       onSavedMeals={meal=>openSaved(meal)} onSaveMeal={meal=>openSaved(meal,true)} onWeight={async weightKg=>saveDay({...day,weightKg})}

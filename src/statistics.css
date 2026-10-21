@@ -52,6 +52,12 @@
 .stats-body-summary > strong { display:block; font-size:2.75rem; font-weight:550; letter-spacing:-.06em; line-height:1.2; }
 .stats-body-summary strong small { font-size:.9rem; letter-spacing:0; padding-left:8px; color:var(--text-muted); }
 .stats-body-summary > span { font-size:.73rem; color:var(--text-muted); }
+.stats-weight-average { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 22px; padding:16px; margin:18px 0 6px; border:1px solid var(--border); border-radius:12px; background:var(--subtle); }
+.stats-weight-average > div > span { display:block; font-size:.8rem; color:var(--text-muted); margin-bottom:7px; }
+.stats-weight-average strong { font-size:1.65rem; line-height:1.2; letter-spacing:-.035em; font-weight:600; }
+.stats-weight-average strong small { font-size:.8rem; color:var(--text-muted); letter-spacing:0; font-weight:400; }
+.stats-weight-average p { margin:0; font-size:.8rem; line-height:1.6; }
+.stats-weight-average p small { display:block; color:var(--text-muted); font-size:.75rem; margin-top:4px; }
 .stats-body-panel .stats-plot { height:240px; }
 .stats-weight-footer { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; font-size:.72rem; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
 .stats-weight-footer > span { color:var(--text-muted); }

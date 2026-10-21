@@ -8,12 +8,27 @@ const nutritionUrl=compile(readFileSync(new URL('../src/nutrition.ts',import.met
 const trainingUrl=compile(readFileSync(new URL('../src/trainingSessions.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`));
 const testedUrl=compile(readFileSync(new URL('../src/testedMaxes.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`));
 const statsUrl=compile(readFileSync(new URL('../src/statistics.ts',import.meta.url),'utf8').replaceAll(/from '\.\/nutrition(?:\.js)?';/g,`from ${JSON.stringify(nutritionUrl)};`).replaceAll(/from '\.\/trainingSessions(?:\.js)?';/g,`from ${JSON.stringify(trainingUrl)};`).replaceAll(/from '\.\/testedMaxes(?:\.js)?';/g,`from ${JSON.stringify(testedUrl)};`));
-const {trainingSessionRecord,trainingSessions,validateTrainingSession}=await import(trainingUrl);
+const {trainingSessionRecord,trainingSessions,validateTrainingSession,snapshotWorkout}=await import(trainingUrl);
 const {buildStatistics,estimatedOneRM,estimatedMaxPoints}=await import(statsUrl);
 const today='2026-10-13';
 const model={id:'template',name:'Haut du corps',date:'2026-10-01',exercises:[{id:'bench',name:'Bench',sets:[{id:'s',weight:999,reps:10}]}]};
 const event=(id,date,source='workout',extra={})=>({version:1,id,date,source,sourceId:model.id,name:model.name,recordedAt:'2026-10-13T12:00:00Z',note:'',exercises:[],...extra});
 const force=(id,date,extra={})=>event(id,date,'strength',{sourceId:'force-block',exercises:[{id:'bench',name:'Bench',weighted:false,sets:[{weight:80,reps:5},{weight:85,reps:3}]}],...extra});
+
+test('workout history snapshots preserve active alternatives and rep ranges without creating Force performances',()=>{
+  const template=structuredClone(model);template.exercises[0].name='Machine';template.exercises[0].sets[0]={id:'range',weight:45,reps:8,repsMin:8,repsMax:12};
+  template.exercises[0].alternatives=[{id:'inactive',name:'Haltères',sets:[{id:'inactive-set',weight:20,reps:10}]}];
+  const session=event('snapshot',today,'workout',{workoutSnapshot:snapshotWorkout(template)});
+  const record=trainingSessionRecord(session);template.exercises[0].sets[0].weight=999;session.workoutSnapshot[0].name='Changed';
+  const stats=buildStatistics({workouts:[record],days:[]},'all',today);
+  assert.equal(stats.sessions[0].workoutSnapshot[0].name,'Machine');assert.equal(stats.sessions[0].workoutSnapshot[0].sets[0].weight,45);
+  assert.equal(stats.sessions[0].workoutSnapshot[0].sets[0].repsMax,12);assert.equal(stats.sessions[0].workoutSnapshot.length,1);
+  assert.equal(stats.logs.length,0);assert.equal(stats.volume,0);assert.equal(stats.trainingDates.length,1);
+});
+test('legacy completions remain readable without invented snapshots; malformed snapshots are rejected',()=>{
+  assert.equal(trainingSessions([trainingSessionRecord(event('legacy',today))],today)[0].workoutSnapshot,undefined);
+  assert.throws(()=>validateTrainingSession(event('bad',today,'workout',{workoutSnapshot:[{id:'e',name:'Bad',sets:[{weight:NaN,reps:8}]}]}),today));
+});
 
 test('reusable model creation never counts as a completed workout or strength load',()=>{
   const stats=buildStatistics({workouts:[model],days:[]},'all',today);

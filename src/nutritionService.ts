@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Workout } from './types';
-import type { NutritionDay, NutritionProfile, SavedMeal } from './nutrition';
+import type { DatedWeight, NutritionDay, NutritionProfile, SavedMeal } from './nutrition';
 import { localDate, NUTRITION_DAY_NAME, NUTRITION_PROFILE_NAME, NUTRITION_MEAL_NAME } from './nutrition';
 import { validateSavedMeal } from './nutritionMeals';
 import { profileWithWeightHistory } from './statistics';
@@ -88,16 +88,25 @@ export async function loadNutritionDay(userId: string, date: string) {
   return { record, day };
 }
 
-export async function loadRecentFoods(userId:string):Promise<FoodHistoryEntry[]> {
+export async function loadNutritionHistory(userId:string):Promise<{entries:FoodHistoryEntry[];weights:DatedWeight[]}> {
   const entries:FoodHistoryEntry[]=[];
+  const weights:DatedWeight[]=[];
   // Owner filtering on every page; no 14-day cut-off or database row-limit loss.
   for(let offset=0;;offset+=500){
     const {data,error}=await client().from('workouts').select('id,date,exercises').eq('user_id',userId).eq('name',NUTRITION_DAY_NAME).order('date',{ascending:false}).order('id',{ascending:false}).range(offset,offset+499).abortSignal(AbortSignal.timeout(15000));
     if(error)throw new Error('Impossible de charger l’historique alimentaire. Réessaie.');
-    for(const record of data ?? [])for(const exercise of record.exercises as Workout['exercises'])for(const entry of exercise.nutritionDay?.entries ?? [])entries.push({...entry,diaryDate:record.date});
+    for(const record of data ?? [])for(const exercise of record.exercises as Workout['exercises']){
+      const day=exercise.nutritionDay;
+      if(day?.weightKg!==undefined)weights.push({date:record.date,weightKg:day.weightKg});
+      for(const entry of day?.entries ?? [])entries.push({...entry,diaryDate:record.date});
+    }
     if(!data || data.length<500)break;
   }
-  return entries;
+  return {entries,weights};
+}
+
+export async function loadRecentFoods(userId:string):Promise<FoodHistoryEntry[]> {
+  return (await loadNutritionHistory(userId)).entries;
 }
 
 export async function healthSyncStatus() {
