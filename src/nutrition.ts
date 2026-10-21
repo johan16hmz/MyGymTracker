@@ -110,16 +110,27 @@ export function datedWeights(profile: NutritionProfile | undefined, days: Pick<N
   return [...points.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// Calendar window, inclusive of the reference day. Call with normalized dated
+// measurements: absent days are ignored, never filled with zero or interpolated.
+export function sevenDayWeightAverage(points: DatedWeight[], through = localDate()) {
+  const start = new Date((calendarDay(through) - 6) * 86400000).toISOString().slice(0, 10);
+  const recent = points.filter(point => point.date >= start && point.date <= through);
+  return { start, end: through, count: recent.length, meanKg: recent.length ? recent.reduce((sum, point) => sum + point.weightKg, 0) / recent.length : undefined };
+}
+
 export function nutritionProgress(profile: NutritionProfile, days: Pick<NutritionDay, 'date' | 'weightKg'>[], date = localDate(), today = localDate()) {
   // Past diaries use measurements available on that date, not today's weight.
   const asOf = date > today ? today : date;
-  const measurement = datedWeights(profile, days, asOf).at(-1);
-  const current = { ...profile, weightKg: measurement?.weightKg ?? profile.weightKg };
+  const points = datedWeights(profile, days, asOf);
+  const measurement = points.at(-1);
+  const average = sevenDayWeightAverage(points, asOf);
+  const weightSource = average.count ? 'average' : measurement ? 'latest' : 'profile';
+  const current = { ...profile, weightKg: average.meanKg ?? measurement?.weightKg ?? profile.weightKg };
   const reached = (profile.goal === 'gain' && current.weightKg >= profile.targetKg) || (profile.goal === 'lose' && current.weightKg <= profile.targetKg);
   // Reaching/crossing the target must not invert the goal or crash validation.
   const calculation = reached || profile.goal === 'maintain' ? { ...current, goal: 'maintain' as const, targetKg: current.weightKg } : current;
   const estimate = estimateCalories(calculation, asOf);
-  return { profile: current, measurement, reached, asOf, estimate, base: profile.calorieOverride ?? estimate.target };
+  return { profile: current, measurement, average, weightSource, reached, asOf, estimate, base: profile.calorieOverride ?? estimate.target };
 }
 
 export function goalDateInMonths(months: number, today = localDate()) {

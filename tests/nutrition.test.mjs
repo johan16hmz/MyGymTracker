@@ -17,12 +17,13 @@ const { parseHealthImport } = await load('../src/nutritionHealth.ts');
 const { foodUpstreamUrl, GET } = await load('../api/food.ts');
 
 const progressProfile={goal:'gain',targetKg:84,age:25,heightCm:180,weightKg:80,activity:'active',equationSex:'male',goalDate:'2027-02-21'};
-test('nutrition progress uses the latest dated weight and the remaining deadline without mutating the goal',()=>{
+test('nutrition progress uses the available 7-day mean and the remaining deadline without mutating the goal',()=>{
   const original=structuredClone(progressProfile);
   const days=[{date:'2026-10-18',weightKg:80.5},{date:'2026-10-21',weightKg:82}];
   const progress=nutritionProgress(progressProfile,days,'2026-10-21','2026-10-21');
-  assert.equal(progress.profile.weightKg,82);assert.equal(progress.measurement.date,'2026-10-21');
-  assert.deepEqual(progress.estimate,estimateCalories({...progressProfile,weightKg:82},'2026-10-21'));
+  assert.equal(progress.profile.weightKg,81.25);assert.equal(progress.measurement.date,'2026-10-21');
+  assert.equal(progress.weightSource,'average');assert.equal(progress.average.count,2);
+  assert.deepEqual(progress.estimate,estimateCalories({...progressProfile,weightKg:81.25},'2026-10-21'));
   assert.notEqual(progress.base,estimateCalories(progressProfile,'2026-10-21').target);
   assert.deepEqual(progressProfile,original);assert.equal(days[1].weightKg,82);
   const later=nutritionProgress(progressProfile,days,'2027-01-21','2027-01-21');
@@ -46,8 +47,42 @@ test('manual targets retain priority; past diaries never use future measurements
   const past=nutritionProgress(profile,days,'2026-10-19','2026-10-21');
   assert.equal(past.profile.weightKg,81);assert.equal(past.base,2500);assert.equal(past.asOf,'2026-10-19');
   const future=nutritionProgress(profile,days,'2026-10-23','2026-10-21');
-  assert.equal(future.profile.weightKg,82);assert.equal(future.asOf,'2026-10-21');
+  assert.equal(future.profile.weightKg,81.5);assert.equal(future.asOf,'2026-10-21');
   assert.equal(nutritionProgress(progressProfile,[],'2026-10-21','2026-10-21').profile.weightKg,80);
+});
+test('nutrition mean includes today and six previous calendar days, ignores gaps, and excludes older or future values',()=>{
+  const days=[{date:'2026-10-14',weightKg:100},{date:'2026-10-15',weightKg:80},{date:'2026-10-18',weightKg:81.2},{date:'2026-10-21',weightKg:82},{date:'2026-10-22',weightKg:200}];
+  const progress=nutritionProgress(progressProfile,days,'2026-10-21','2026-10-21');
+  assert.deepEqual(progress.average,{start:'2026-10-15',end:'2026-10-21',count:3,meanKg:(80+81.2+82)/3});
+  assert.equal(progress.profile.weightKg,(80+81.2+82)/3);
+  assert.deepEqual(progress.estimate,estimateCalories({...progressProfile,weightKg:(80+81.2+82)/3},'2026-10-21'));
+});
+test('nutrition falls back to the most recent dated weight only when the 7-day window is empty',()=>{
+  const profile={...progressProfile,weightHistory:[{date:'2026-10-10',weightKg:81.5}]};
+  const progress=nutritionProgress(profile,[{date:'2026-10-14',weightKg:82},{date:'2026-10-05',weightKg:79}],'2026-10-21','2026-10-21');
+  assert.equal(progress.weightSource,'latest');assert.equal(progress.average.count,0);assert.equal(progress.average.meanKg,undefined);
+  assert.equal(progress.profile.weightKg,82);assert.equal(progress.measurement.date,'2026-10-14');
+  assert.deepEqual(progress.estimate,estimateCalories({...profile,weightKg:82},'2026-10-21'));
+  const profileHistoryOnly=nutritionProgress(profile,[],'2026-10-21','2026-10-21');
+  assert.equal(profileHistoryOnly.weightSource,'latest');assert.equal(profileHistoryOnly.profile.weightKg,81.5);
+});
+test('nutrition uses profile weight only when no valid past measurements exist, without inventing a mean',()=>{
+  const progress=nutritionProgress(progressProfile,[{date:'2026-10-22',weightKg:82},{date:'2026-10-21',weightKg:NaN},{date:'2026-02-30',weightKg:81},{date:'2026-10-20',weightKg:0}],'2026-10-21','2026-10-21');
+  assert.equal(progress.weightSource,'profile');assert.equal(progress.measurement,undefined);assert.equal(progress.average.meanKg,undefined);
+  assert.equal(progress.profile.weightKg,80);assert.deepEqual(progress.estimate,estimateCalories(progressProfile,'2026-10-21'));
+});
+test('a single recent measurement counts as a 7-day mean and diary precedence prevents duplicate-day bias',()=>{
+  const profile={...progressProfile,weightHistory:[{date:'2026-10-20',weightKg:100}]};
+  const progress=nutritionProgress(profile,[{date:'2026-10-20',weightKg:81}],'2026-10-21','2026-10-21');
+  assert.equal(progress.weightSource,'average');assert.equal(progress.average.count,1);assert.equal(progress.profile.weightKg,81);
+});
+test('reaching the target uses the mean, not one unusually high or low measurement',()=>{
+  const gain=nutritionProgress(progressProfile,[{date:'2026-10-20',weightKg:82},{date:'2026-10-21',weightKg:85}],'2026-10-21','2026-10-21');
+  assert.equal(gain.profile.weightKg,83.5);assert.equal(gain.reached,false);assert.ok(gain.estimate.adjustment>0);
+  const reached=nutritionProgress(progressProfile,[{date:'2026-10-20',weightKg:83},{date:'2026-10-21',weightKg:85}],'2026-10-21','2026-10-21');
+  assert.equal(reached.reached,true);assert.equal(reached.estimate.adjustment,0);
+  const loss=nutritionProgress({...progressProfile,goal:'lose',targetKg:75},[{date:'2026-10-20',weightKg:77},{date:'2026-10-21',weightKg:74}],'2026-10-21','2026-10-21');
+  assert.equal(loss.profile.weightKg,75.5);assert.equal(loss.reached,false);assert.ok(loss.estimate.adjustment<0);
 });
 test('dated weights share profile and diary precedence, reject impossible dates, invalid weights and future days',()=>{
   const profile={...progressProfile,weightHistory:[{date:'2026-10-20',weightKg:80},{date:'2026-10-19',weightKg:79}]};

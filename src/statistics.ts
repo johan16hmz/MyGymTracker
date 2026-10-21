@@ -1,6 +1,6 @@
 import type { Workout } from './types';
 import type { NutritionDay, NutritionProfile } from './nutrition';
-import { localDate, datedWeights } from './nutrition.js';
+import { localDate, datedWeights, sevenDayWeightAverage } from './nutrition.js';
 import { trainingSessions, validTrainingDate } from './trainingSessions.js';
 import { testedMaxes } from './testedMaxes.js';
 
@@ -75,9 +75,7 @@ export function estimatedMaxPoints(logs: StrengthLog[], exerciseId: string) {
 }
 export function buildStatistics(source: StatsSource, period: StatsPeriod, today = localDate()) {
   const allWeights = weightPoints(source.profile, source.days, today);
-  const averageStart = shiftDate(today, -6);
-  const recentWeights = allWeights.filter(point => point.date >= averageStart);
-  const weightAverage7Days = { start: averageStart, end: today, count: recentWeights.length, meanKg: recentWeights.length ? recentWeights.reduce((sum, point) => sum + point.weightKg, 0) / recentWeights.length : undefined };
+  const weightAverage7Days = sevenDayWeightAverage(allWeights, today);
   const datedWeights=new Map(allWeights.map(point=>[point.date,point.weightKg]));
   const allLogs = strengthLogs(source.workouts, today).map(log=>({...log,bodyWeightKg:log.bodyWeightKg ?? datedWeights.get(log.date)}));
   const allSessions = trainingSessions(source.workouts,today);
